@@ -127,7 +127,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
 
         DataEmitterOptions options = new DataEmitterOptions(
             runContext.render(this.maxRecords).as(Long.class).orElseThrow(),
-            runContext.render(this.throughput).as(Integer.class).orElseThrow(),
+            Math.max(1, runContext.render(this.throughput).as(Integer.class).orElseThrow()),
             runContext.render(this.reportingInterval).as(Duration.class).orElseThrow()
         );
 
