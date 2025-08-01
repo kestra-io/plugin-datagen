@@ -65,7 +65,7 @@ import java.util.Optional;
 @ToString
 @EqualsAndHashCode
 @Getter
-public class Trigger extends AbstractTrigger implements PollingTriggerInterface, TriggerOutput<Data>, GenerateInterface {
+public class Trigger extends AbstractTrigger implements PollingTriggerInterface, TriggerOutput<Data>, BatchGenerateInterface {
 
     private DataGenerator<?> generator;
 

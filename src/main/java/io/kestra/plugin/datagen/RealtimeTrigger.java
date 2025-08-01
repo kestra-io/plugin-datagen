@@ -77,13 +77,7 @@ import java.util.function.Consumer;
 @EqualsAndHashCode
 @Getter
 public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerInterface, TriggerOutput<Data>, GenerateInterface {
-
-    @Builder.Default
-    private Property<Boolean> store = Property.ofValue(DEFAULT_STORE);
-
-    @Builder.Default
-    private Property<Integer> batchSize = Property.ofValue(DEFAULT_BATCH_SIZE);
-
+    
     @Schema(
         title = "Total Number of Records",
         description = "The total number of records to generate.  No further record will be generate once this number is reached."
@@ -96,7 +90,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
         description = "The approximate number of records per second that will be created by this trigger."
     )
     @Builder.Default
-    private Property<Integer> throughput = Property.ofValue(DEFAULT_BATCH_SIZE);
+    private Property<Integer> throughput = Property.ofValue(1);
 
     @Schema(
         title = "Reporting Interval",
@@ -119,7 +113,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
 
     @Builder.Default
     @Getter(AccessLevel.NONE)
-    private final CountDownLatch waitForTermination = new CountDownLatch(DEFAULT_BATCH_SIZE);
+    private final CountDownLatch waitForTermination = new CountDownLatch(1);
 
     @Getter(AccessLevel.NONE)
     private DataEmitter dataEmitter;
@@ -148,8 +142,8 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
                 .id(this.id)
                 .type(Generate.class.getName())
                 .version(version)
-                .store(store)
-                .batchSize(batchSize)
+                .store(Property.ofValue(false))
+                .batchSize(Property.ofValue(1))
                 .generator(generator)
                 .build();
 
@@ -186,11 +180,11 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
      **/
     @Override
     public void stop() {
-        stop(DEFAULT_STORE); // must be non-blocking
+        stop(false); // must be non-blocking
     }
 
     private void stop(boolean wait) {
-        if (!isActive.compareAndSet(true, DEFAULT_STORE)) {
+        if (!isActive.compareAndSet(true, false)) {
             return;
         }
 

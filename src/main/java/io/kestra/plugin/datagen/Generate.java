@@ -54,6 +54,35 @@ import java.net.URI;
         @Example(
             full = true,
             code = """
+            id: datagen_person_json_batch
+            namespace: com.example.datagen
+
+            tasks:
+              - id: datagen
+                type: io.kestra.plugin.datagen.Generate
+                batchSize: 100
+                store: true
+                generator:
+                  type: io.kestra.plugin.datagen.generators.JsonObjectGenerator
+                  locale: ["fr", "FR"]
+                  value:
+                    name: "#{name.fullName}"
+                    email: "#{internet.emailAddress}"
+                    age: 30
+                    address:
+                      city: "#{address.city}"
+                      zip: "#{address.zipCode}"
+                    skills: [ "#{job.keySkills}", "#{job.position}", "hardcoded" ]
+                    ts: "{{ now() }}"
+
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: "Created: {{ outputs.datagen.value.name }} ({{ outputs.datagen.value.email }})!"
+            """
+        ),
+        @Example(
+            full = true,
+            code = """
             id: datagen_person_csv
             namespace: com.example.datagen
             inputs:
@@ -100,7 +129,7 @@ import java.net.URI;
 @ToString
 @EqualsAndHashCode
 @Getter
-public class Generate extends Task implements RunnableTask<Data>, GenerateInterface {
+public class Generate extends Task implements RunnableTask<Data>, BatchGenerateInterface {
 
     private DataGenerator<?> generator;
 
