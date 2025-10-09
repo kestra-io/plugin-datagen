@@ -1,4 +1,4 @@
-package io.kestra.plugin.datagen;
+package io.kestra.plugin.datagen.core;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
@@ -12,6 +12,8 @@ import io.kestra.core.models.triggers.TriggerContext;
 import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.models.triggers.TriggerService;
 import io.kestra.core.runners.RunContext;
+import io.kestra.plugin.datagen.Data;
+import io.kestra.plugin.datagen.GenerateInterface;
 import io.kestra.plugin.datagen.model.DataGenerator;
 import io.kestra.plugin.datagen.model.Producer;
 import io.kestra.plugin.datagen.services.DataEmitterOptions;
@@ -48,7 +50,7 @@ import java.util.function.Consumer;
 
             triggers:
               - id: datagen
-                type: io.kestra.plugin.datagen.RealtimeTrigger
+                type: io.kestra.plugin.datagen.core.RealtimeTrigger
                 throughput: 10
                 reportingInterval: PT5S
                 generator:
@@ -77,7 +79,7 @@ import java.util.function.Consumer;
 @EqualsAndHashCode
 @Getter
 public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerInterface, TriggerOutput<Data>, GenerateInterface {
-    
+
     @Schema(
         title = "Total Number of Records",
         description = "The total number of records to generate.  No further record will be generate once this number is reached."

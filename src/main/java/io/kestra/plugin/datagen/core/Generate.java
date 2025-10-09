@@ -1,4 +1,4 @@
-package io.kestra.plugin.datagen;
+package io.kestra.plugin.datagen.core;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
@@ -7,6 +7,8 @@ import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.models.tasks.Task;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.JacksonMapper;
+import io.kestra.plugin.datagen.BatchGenerateInterface;
+import io.kestra.plugin.datagen.Data;
 import io.kestra.plugin.datagen.model.DataGenerator;
 import io.kestra.plugin.datagen.utils.DataUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -32,7 +34,7 @@ import java.net.URI;
 
             tasks:
               - id: datagen
-                type: io.kestra.plugin.datagen.Generate
+                type: io.kestra.plugin.datagen.core.Generate
                 generator:
                   type: io.kestra.plugin.datagen.generators.JsonObjectGenerator
                   locale: ["fr", "FR"]
@@ -59,7 +61,7 @@ import java.net.URI;
 
             tasks:
               - id: datagen
-                type: io.kestra.plugin.datagen.Generate
+                type: io.kestra.plugin.datagen.core.Generate
                 batchSize: 100
                 store: true
                 generator:
@@ -105,7 +107,7 @@ import java.net.URI;
                 defaults: true
             tasks:
               - id: datagen
-                type: io.kestra.plugin.datagen.Generate
+                type: io.kestra.plugin.datagen.core.Generate
                 generator:
                   type: io.kestra.plugin.datagen.generators.StringValueGenerator
                   locale: ["en", "US"]
