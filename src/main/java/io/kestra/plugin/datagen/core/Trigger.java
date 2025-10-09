@@ -1,4 +1,4 @@
-package io.kestra.plugin.datagen;
+package io.kestra.plugin.datagen.core;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
@@ -10,6 +10,8 @@ import io.kestra.core.models.triggers.PollingTriggerInterface;
 import io.kestra.core.models.triggers.TriggerContext;
 import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.models.triggers.TriggerService;
+import io.kestra.plugin.datagen.BatchGenerateInterface;
+import io.kestra.plugin.datagen.Data;
 import io.kestra.plugin.datagen.model.DataGenerator;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
@@ -37,7 +39,7 @@ import java.util.Optional;
 
             triggers:
               - id: datagen
-                type: io.kestra.plugin.datagen.Trigger
+                type: io.kestra.plugin.datagen.core.Trigger
                 batchSize: 10
                 store: true
                 generator:
