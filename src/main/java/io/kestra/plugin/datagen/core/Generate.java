@@ -12,11 +12,7 @@ import io.kestra.plugin.datagen.Data;
 import io.kestra.plugin.datagen.model.DataGenerator;
 import io.kestra.plugin.datagen.utils.DataUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.io.BufferedOutputStream;
@@ -25,6 +21,7 @@ import java.io.FileOutputStream;
 import java.net.URI;
 
 @Plugin(
+    aliases = {"io.kestra.plugin.datagen.Generate"},
     examples = {
         @Example(
             full = true,

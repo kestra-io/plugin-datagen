@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Plugin(
+    aliases = {"io.kestra.plugin.datagen.RealtimeTrigger"},
     examples = {
         @Example(
             full = true,

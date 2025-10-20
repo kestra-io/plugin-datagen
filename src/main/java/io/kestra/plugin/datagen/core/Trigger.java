@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Plugin(
+    aliases = {"io.kestra.plugin.datagen.Trigger"},
     examples = {
         @Example(
             full = true,
