@@ -2,13 +2,14 @@ package io.kestra.plugin.datagen.services;
 
 import io.kestra.core.exceptions.IllegalVariableEvaluationException;
 import io.kestra.core.junit.annotations.KestraTest;
+import io.kestra.core.runners.RunContext;
 import io.kestra.core.runners.RunContextFactory;
 import io.kestra.plugin.datagen.Data;
 import io.kestra.plugin.datagen.generators.StringValueGenerator;
 import io.kestra.plugin.datagen.model.Producer;
 import jakarta.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -17,7 +18,6 @@ import java.util.function.Consumer;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@Slf4j
 @KestraTest
 class DataEmitterTest {
 
@@ -28,11 +28,13 @@ class DataEmitterTest {
     void shouldGenerateData() throws IllegalVariableEvaluationException {
         // Given
         List<Data> generated = new ArrayList<>(10);
+        RunContext runContext = runContextFactory.of();
         StringValueGenerator generator = StringValueGenerator
             .builder()
             .value("value")
             .build();
-        generator.init(runContextFactory.of());
+        generator.init(runContext);
+        Logger logger = runContext.logger();
 
         Consumer<Data> consumer = generated::add;
         Producer<Data> producer = () -> {
@@ -45,7 +47,7 @@ class DataEmitterTest {
         };
 
         DataEmitterOptions options = new DataEmitterOptions(10L, DataEmitterOptions.NO_THROUGHPUT, Duration.ZERO);
-        DataEmitter task = new DataEmitter(producer, consumer, options, log);
+        DataEmitter task = new DataEmitter(producer, consumer, options, logger);
 
         // When
         task.run();
