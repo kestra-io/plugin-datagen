@@ -1,0 +1,8 @@
+group: io.kestra.plugin.datagen.generators
+name: "generators"
+title: "Generators"
+description: "This sub-group of plugins contains data generators for Kestra DataGen plugin."
+body: ""
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

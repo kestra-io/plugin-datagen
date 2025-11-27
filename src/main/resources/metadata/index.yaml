@@ -1,0 +1,8 @@
+group: io.kestra.plugin.datagen
+name: "datagen"
+title: "Datagen"
+description: "A Kestra plugin that triggers executions by generating custom data payloads."
+body: ""
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"
