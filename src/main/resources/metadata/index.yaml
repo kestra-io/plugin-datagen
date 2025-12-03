@@ -1,8 +1,8 @@
 group: io.kestra.plugin.datagen
 name: "datagen"
 title: "Datagen"
-description: "A Kestra plugin that triggers executions by generating custom data payloads."
-body: ""
+description: "Tasks that produce synthetic data payloads for triggering and exercising Kestra workflows."
+body: "Use DataGen to simulate events without external sources by pairing core tasks or triggers with JSON, string, or byte generators. Configure a generator (`value` template or `size`) and optionally batch and store results so downstream tasks can read generated files from Kestra storage."
 videos: []
 createdBy: "Kestra Core Team"
 managedBy: "Kestra Core Team"
