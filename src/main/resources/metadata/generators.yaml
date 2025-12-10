@@ -1,0 +1,8 @@
+group: io.kestra.plugin.datagen.generators
+name: "generators"
+title: "Generators"
+description: "Tasks that provide reusable data generators for JSON objects, strings, or binary payloads."
+body: "Generators plug into DataGen tasks and triggers to emit structured or raw data. Define the `value` template for `JsonObjectGenerator` or `StringValueGenerator` (supports Datafaker expressions and locale lists) or the `size` of random byte arrays, then reference the generator in a core task."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"
