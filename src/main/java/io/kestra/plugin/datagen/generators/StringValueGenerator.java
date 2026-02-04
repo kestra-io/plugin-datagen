@@ -21,7 +21,7 @@ import java.util.List;
 
 @Schema(
     title = "Generate strings from templates",
-    description = "Renders the `value` string (Pebble) and then evaluates Datafaker expressions like `#{name.firstName}` for each record. Locale list overrides Faker locale; empty list uses the library default."
+    description = "Renders the `value` string (Pebble) and then evaluates [Datafaker expressions](https://www.datafaker.net/documentation/expressions/) like `#{name.firstName}` for each record. Locale list overrides Faker locale; empty list uses the library default."
 )
 @Plugin
 @NoArgsConstructor
