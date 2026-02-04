@@ -1,8 +1,8 @@
 group: io.kestra.plugin.datagen.core
 name: "core"
 title: "Core"
-description: "Tasks that generate synthetic records on demand or emit them continuously via triggers."
-body: "Use `Generate` to produce a single value inline or batches saved to storage, and `Trigger`/`RealtimeTrigger` to schedule or stream executions. Each task requires a `generator` definition (e.g., JSON, string, bytes); tune `batchSize`, `store`, `throughput`, and `reportingInterval` to shape output volume and persistence."
+description: "Tasks that generate synthetic records on demand or emit them continuously."
+body: "Use `Generate` for inline values or batches stored in internal storage, `Trigger` for interval-based batches, and `RealtimeTrigger` for streaming at a controlled throughput. Every task needs a `generator` (JSON, string, bytes); key controls include `store` (defaults false), `batchSize` (defaults 1), `throughput`, `reportingInterval`, and `maxRecords` for caps."
 videos: []
 createdBy: "Kestra Core Team"
 managedBy: "Kestra Core Team"

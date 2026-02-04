@@ -120,8 +120,8 @@ import java.net.URI;
     }
 )
 @Schema(
-    title = "Generate data",
-    description = "This task generates data, using a configured data generator. Generators can support [Datafaker](https://www.datafaker.net/documentation/expressions/)"
+    title = "Generate synthetic data",
+    description = "Runs the configured generator once (inline) or for a batch when `store` is true. When stored, results are written as Ion lines to internal storage; defaults are `store=false` and `batchSize=1`."
 )
 @SuperBuilder
 @NoArgsConstructor
