@@ -14,8 +14,8 @@ import lombok.experimental.SuperBuilder;
 import java.security.SecureRandom;
 
 @Schema(
-    title = "Random Bytes Generator",
-    description = "Generates random bytes"
+    title = "Generate random byte arrays",
+    description = "Allocates a byte array of the configured size and fills it with `SecureRandom` bytes. Size should be positive; randomness relies on the JVM's default seed."
 )
 @Plugin
 @NoArgsConstructor
@@ -26,7 +26,7 @@ public class RandomBytesGenerator extends DataGenerator<byte[]> {
 
     @Schema(
         title = "Byte array size",
-        description = "The number of bytes to generate for each output value"
+        description = "Number of bytes produced per record; should be greater than zero"
     )
     @NotNull
     private int size;

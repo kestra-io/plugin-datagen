@@ -10,13 +10,13 @@ public interface BatchGenerateInterface extends GenerateInterface{
     
     @Schema(
         title = "Store generated data",
-        description = "If true, the generated data will be persisted to Kestra's internal storage. If false, the data is emitted part of the task output."
+        description = "Persist output to Kestra internal storage as Ion lines when true; defaults to false to return the value inline."
     )
     Property<Boolean> getStore();
 
     @Schema(
         title = "Batch size",
-        description = "The number of items to generate when storing data. This is only applicable when 'store' is set to true."
+        description = "Number of items to generate when storing data; only used if `store` is true. Defaults to 1."
     )
     Property<Integer> getBatchSize();
 

@@ -71,8 +71,8 @@ import java.util.function.Consumer;
     }
 )
 @Schema(
-    title = "Generate data in real time",
-    description = "This task continuously emits generated data in real time, using a configured data generator. It can be used to simulate event streams or high-throughput environments."
+    title = "Stream generated data in real time",
+    description = "Continuously runs the generator with backpressure. Controls include `throughput` per second (minimum 1), `maxRecords` cap (default unlimited), and `reportingInterval` for stats; data is emitted in trigger output, not stored."
 )
 @NoArgsConstructor
 @SuperBuilder
@@ -82,29 +82,29 @@ import java.util.function.Consumer;
 public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerInterface, TriggerOutput<Data>, GenerateInterface {
 
     @Schema(
-        title = "Total Number of Records",
-        description = "The total number of records to generate.  No further record will be generate once this number is reached."
+        title = "Total number of records",
+        description = "Hard limit on records emitted; defaults to unlimited when not set."
     )
     @Builder.Default
     private Property<Long> maxRecords = Property.ofValue(Long.MAX_VALUE);
 
     @Schema(
-        title = "Trigger Throughput",
-        description = "The approximate number of records per second that will be created by this trigger."
+        title = "Trigger throughput",
+        description = "Approximate records per second; values below 1 are rounded up to 1."
     )
     @Builder.Default
     private Property<Integer> throughput = Property.ofValue(1);
 
     @Schema(
-        title = "Reporting Interval",
-        description = "The time interval at which reporting is performed during generation."
+        title = "Reporting interval",
+        description = "Period for throughput reporting; defaults to 15 seconds."
     )
     @Builder.Default
     private Property<Duration> reportingInterval = Property.ofValue(Duration.ofSeconds(15));
 
     @Schema(
-        title = "Data Generator",
-        description = "The data generator implementation responsible for producing the data."
+        title = "Data generator",
+        description = "Generator used for each emitted record; not stored, only emitted in trigger outputs."
     )
     @NotNull
     @PluginProperty
