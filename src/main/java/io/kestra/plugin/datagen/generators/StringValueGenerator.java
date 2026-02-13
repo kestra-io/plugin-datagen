@@ -20,8 +20,8 @@ import net.datafaker.Faker;
 import java.util.List;
 
 @Schema(
-    title = "String Value Generator",
-    description = "Generates textual data based on fixed values, pebble expressions, or [Datafaker expressions](https://www.datafaker.net/documentation/expressions/)."
+    title = "Generate strings from templates",
+    description = "Renders the `value` string (Pebble) and then evaluates [Datafaker expressions](https://www.datafaker.net/documentation/expressions/) like `#{name.firstName}` for each record. Locale list overrides Faker locale; empty list uses the library default."
 )
 @Plugin
 @NoArgsConstructor
@@ -31,8 +31,8 @@ import java.util.List;
 public final class StringValueGenerator extends DataGenerator<String> {
 
     @Schema(
-        title = "The string value",
-        description = "The string value to generate for each output value"
+        title = "String template",
+        description = "String rendered per record; supports Pebble variables and Datafaker expressions starting with `#{`"
     )
     @NotNull
     @PluginProperty
@@ -40,7 +40,7 @@ public final class StringValueGenerator extends DataGenerator<String> {
 
     @Schema(
         title = "Locales",
-        description = "List of locale values in the format [language, country, variant] (e.g., [\"en\", \"US\"], [\"fr\", \"FR\"]). Controls the language and region of the generated data."
+        description = "Optional locale list in the format [language, country, variant]; empty list uses Faker's default locale."
     )
     private Property<List<String>> locale;
 

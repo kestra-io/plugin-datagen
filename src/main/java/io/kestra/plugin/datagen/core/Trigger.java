@@ -60,8 +60,8 @@ import java.util.Optional;
     }
 )
 @Schema(
-    title = "Generate data in real time",
-    description = "This task continuously emits generated data in real time, using a configured data generator. It can be used to simulate event streams or high-throughput environments."
+    title = "Poll to generate data batches",
+    description = "Periodically invokes the generator and emits an execution. Defaults: `store=false`, `batchSize=1`, `interval=PT1S`. Use `store=true` to persist Ion lines to internal storage instead of embedding the value."
 )
 @NoArgsConstructor
 @SuperBuilder

@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 @Schema(
-    title = "JSON Object Generator",
-    description = "Generates structured objects"
+    title = "Generate JSON objects from templates",
+    description = "Renders the `value` map, then evaluates Datafaker expressions (`#{...}`) on every record. Supports nested maps/lists; locale list overrides Faker locale, otherwise the library default is used."
 )
 @Plugin
 @NoArgsConstructor
@@ -32,8 +32,8 @@ import java.util.Map;
 public final class JsonObjectGenerator extends DataGenerator<Map<String, Object>> {
 
     @Schema(
-        title = "Object to generate",
-        description = "A map of key-value pairs where values can contain [Datafaker expressions](https://www.datafaker.net/documentation/expressions/) (e.g., #{name.firstName}) to be evaluated for each output record."
+        title = "Object template",
+        description = "Map of key-value pairs rendered per record; strings starting with `#{` are evaluated by [Datafaker](https://www.datafaker.net/documentation/expressions/), including nested maps and lists."
     )
     @NotNull
     @PluginProperty
@@ -41,7 +41,7 @@ public final class JsonObjectGenerator extends DataGenerator<Map<String, Object>
 
     @Schema(
         title = "Locales",
-        description = "List of locale values in the format [language, country, variant] (e.g., [\"en\", \"US\"], [\"fr\", \"FR\"]). Controls the language and region of the generated data."
+        description = "Optional locale list in the format [language, country, variant]; empty list uses Faker's default locale."
     )
     private Property<List<String>> locale;
 
