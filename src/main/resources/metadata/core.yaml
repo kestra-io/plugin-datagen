@@ -1,6 +1,6 @@
 group: io.kestra.plugin.datagen.core
 name: "core"
-title: "Core"
+title: "Datagen Core"
 description: "Tasks that generate synthetic records on demand or emit them continuously."
 body: "Use `Generate` for inline values or batches stored in internal storage, `Trigger` for interval-based batches, and `RealtimeTrigger` for streaming at a controlled throughput. Every task needs a `generator` (JSON, string, bytes); key controls include `store` (defaults false), `batchSize` (defaults 1), `throughput`, `reportingInterval`, and `maxRecords` for caps."
 videos: []
