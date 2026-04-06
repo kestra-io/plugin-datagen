@@ -35,13 +35,14 @@ public final class StringValueGenerator extends DataGenerator<String> {
         description = "String rendered per record; supports Pebble variables and Datafaker expressions starting with `#{`"
     )
     @NotNull
-    @PluginProperty
+    @PluginProperty(group = "main")
     private String value;
 
     @Schema(
         title = "Locales",
         description = "Optional locale list in the format [language, country, variant]; empty list uses Faker's default locale."
     )
+    @PluginProperty(group = "advanced")
     private Property<List<String>> locale;
 
     @Getter(AccessLevel.NONE)
