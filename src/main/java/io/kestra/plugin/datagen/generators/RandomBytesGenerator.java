@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 import java.security.SecureRandom;
+import io.kestra.core.models.annotations.PluginProperty;
 
 @Schema(
     title = "Generate random byte arrays",
@@ -29,6 +30,7 @@ public class RandomBytesGenerator extends DataGenerator<byte[]> {
         description = "Number of bytes produced per record; should be greater than zero"
     )
     @NotNull
+    @PluginProperty(group = "main")
     private int size;
 
     @Getter(AccessLevel.NONE)

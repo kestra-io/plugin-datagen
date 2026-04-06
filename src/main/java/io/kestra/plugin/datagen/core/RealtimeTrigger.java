@@ -86,6 +86,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
         description = "Hard limit on records emitted; defaults to unlimited when not set."
     )
     @Builder.Default
+    @PluginProperty(group = "execution")
     private Property<Long> maxRecords = Property.ofValue(Long.MAX_VALUE);
 
     @Schema(
@@ -93,6 +94,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
         description = "Approximate records per second; values below 1 are rounded up to 1."
     )
     @Builder.Default
+    @PluginProperty(group = "advanced")
     private Property<Integer> throughput = Property.ofValue(1);
 
     @Schema(
@@ -100,6 +102,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
         description = "Period for throughput reporting; defaults to 15 seconds."
     )
     @Builder.Default
+    @PluginProperty(group = "advanced")
     private Property<Duration> reportingInterval = Property.ofValue(Duration.ofSeconds(15));
 
     @Schema(
@@ -107,7 +110,7 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
         description = "Generator used for each emitted record; not stored, only emitted in trigger outputs."
     )
     @NotNull
-    @PluginProperty
+    @PluginProperty(group = "main")
     private DataGenerator<?> generator;
 
     @Builder.Default

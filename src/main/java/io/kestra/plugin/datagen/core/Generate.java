@@ -19,6 +19,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.net.URI;
+import io.kestra.core.models.annotations.PluginProperty;
 
 @Plugin(
     aliases = {"io.kestra.plugin.datagen.Generate"},
@@ -130,12 +131,15 @@ import java.net.URI;
 @Getter
 public class Generate extends Task implements RunnableTask<Data>, BatchGenerateInterface {
 
+    @PluginProperty(group = "main")
     private DataGenerator<?> generator;
 
     @Builder.Default
+    @PluginProperty(group = "destination")
     private Property<Boolean> store = Property.ofValue(DEFAULT_STORE);
 
     @Builder.Default
+    @PluginProperty(group = "advanced")
     private Property<Integer> batchSize = Property.ofValue(DEFAULT_BATCH_SIZE);
 
     @Override

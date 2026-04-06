@@ -36,13 +36,14 @@ public final class JsonObjectGenerator extends DataGenerator<Map<String, Object>
         description = "Map of key-value pairs rendered per record; strings starting with `#{` are evaluated by [Datafaker](https://www.datafaker.net/documentation/expressions/), including nested maps and lists."
     )
     @NotNull
-    @PluginProperty
+    @PluginProperty(group = "main")
     private Map<String, Object> value;
 
     @Schema(
         title = "Locales",
         description = "Optional locale list in the format [language, country, variant]; empty list uses Faker's default locale."
     )
+    @PluginProperty(group = "advanced")
     private Property<List<String>> locale;
 
     @Getter(AccessLevel.NONE)

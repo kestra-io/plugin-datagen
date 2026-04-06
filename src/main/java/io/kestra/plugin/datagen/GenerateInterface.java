@@ -12,7 +12,7 @@ public interface GenerateInterface {
         description = "Generator used for each record; required for all generate tasks and triggers."
     )
     @NotNull
-    @PluginProperty
+    @PluginProperty(group = "main")
     DataGenerator getGenerator();
     
 }

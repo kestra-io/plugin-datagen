@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.net.URI;
+import io.kestra.core.models.annotations.PluginProperty;
 
 @AllArgsConstructor
 @Getter
@@ -16,23 +17,27 @@ public class Data implements io.kestra.core.models.tasks.Output {
         title = "Generated size (bytes)",
         description = "Total size in bytes of the returned value or stored Ion file."
     )
+    @PluginProperty(group = "advanced")
     private Long size;
 
     @Schema(
         title = "Items generated",
         description = "Number of records produced by the generator."
     )
+    @PluginProperty(group = "execution")
     private Integer count;
 
     @Schema(
         title = "Generated value",
         description = "Inline content when `store` is false; null when data is stored. May be string, number, JSON object, or byte array depending on the generator."
     )
+    @PluginProperty(group = "advanced")
     private final Object value;
 
     @Schema(
         title = "Stored file URI",
         description = "URI in internal storage when `store` is true; null for inline outputs."
     )
+    @PluginProperty(group = "advanced")
     private final URI uri;
 }
