@@ -1,6 +1,5 @@
 package io.kestra.plugin.datagen.core;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
 import io.kestra.core.models.annotations.PluginProperty;
@@ -25,108 +24,150 @@ import java.util.*;
 @Plugin(
     examples = {
         @Example(
+            title = "Anonymize flat columns in a CSV export",
             full = true,
             code = """
-            id: anonymize_csv
+            id: anonymize_customer_csv
             namespace: company.team
-
-            inputs:
-              - id: file
-                type: FILE
 
             tasks:
               - id: anonymize
                 type: io.kestra.plugin.datagen.core.Anonymize
                 from: "{{ inputs.file }}"
                 contentType: CSV
+                locale: ["en", "US"]
                 fields:
-                  name: "#{name.fullName}"
+                  first_name: "#{name.first_name}"
+                  last_name: "#{name.last_name}"
                   email: "#{internet.emailAddress}"
+                  phone: "#{phoneNumber.cellPhone}"
+                  address: "#{address.fullAddress}"
+
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: "Anonymized {{ outputs.anonymize.count }} records: {{ outputs.anonymize.uri }}"
             """
         ),
         @Example(
+            title = "Anonymize nested fields in a JSON export",
             full = true,
             code = """
-            id: anonymize_json
+            id: anonymize_customer_json
             namespace: company.team
-
-            inputs:
-              - id: file
-                type: FILE
 
             tasks:
               - id: anonymize
                 type: io.kestra.plugin.datagen.core.Anonymize
-                from: "{{ inputs.file }}"
+                from: "{{ outputs.previous_task.uri }}"
                 contentType: JSON
-                fields:
-                  user.profile.email: "#{internet.emailAddress}"
-                  user.profile.name: "#{name.fullName}"
-                  user.address.city: "#{address.city}"
-            """
-        ),
-        @Example(
-            full = true,
-            code = """
-            id: anonymize_csv_with_locale
-            namespace: company.team
-
-            inputs:
-              - id: file
-                type: FILE
-
-            tasks:
-              - id: anonymize
-                type: io.kestra.plugin.datagen.core.Anonymize
-                from: "{{ inputs.file }}"
-                contentType: CSV
                 locale: ["fr", "FR"]
                 fields:
-                  nom: "#{name.fullName}"
-                  email: "#{internet.emailAddress}"
-                  ville: "#{address.city}"
+                  "user.profile.fullName": "#{name.fullName}"
+                  "user.profile.email": "#{internet.emailAddress}"
+                  "user.address.city": "#{address.city}"
+                  "user.address.zipCode": "#{address.zipCode}"
+
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: "Anonymized {{ outputs.anonymize.count }} JSON records — result at {{ outputs.anonymize.uri }}"
             """
         ),
         @Example(
+            title = "Nightly GDPR-safe data preparation on a schedule",
             full = true,
             code = """
-            id: anonymize_json_autodetect
+            id: nightly_anonymize_export
+            namespace: company.team
+
+            triggers:
+              - id: nightly
+                type: io.kestra.plugin.core.trigger.Schedule
+                cron: "0 2 * * *"
+
+            tasks:
+              - id: anonymize
+                type: io.kestra.plugin.datagen.core.Anonymize
+                from: "{{ vars.daily_export_uri }}"
+                contentType: CSV
+                locale: ["en", "US"]
+                fields:
+                  customer_name: "#{name.fullName}"
+                  customer_email: "#{internet.emailAddress}"
+                  customer_phone: "#{phoneNumber.cellPhone}"
+                  national_id: "#{idNumber.ssnValid}"
+
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: "Nightly anonymization complete — {{ outputs.anonymize.count }} records written to {{ outputs.anonymize.uri }}"
+            """
+        ),
+        @Example(
+            title = "Generate a CSV of superhero real names and anonymize them",
+            full = true,
+            code = """
+            id: anonymize_superhero_csv
             namespace: company.team
 
             tasks:
-              - id: generate
-                type: io.kestra.plugin.datagen.core.Generate
-                batchSize: 50
-                store: true
-                generator:
-                  type: io.kestra.plugin.datagen.generators.JsonObjectGenerator
-                  value:
-                    name: "#{name.fullName}"
-                    email: "#{internet.emailAddress}"
-                    age: 30
+              - id: working_directory
+                type: io.kestra.plugin.core.flow.WorkingDir
+                tasks:
+                  - id: generate_csv_script
+                    type: io.kestra.plugin.scripts.python.Commands
+                    taskRunner:
+                      type: io.kestra.plugin.core.runner.Process
+                    outputFiles:
+                      - "heroes.csv"
+                    commands:
+                      - |
+                        cat << 'PYEOF' > generate.py
+                        import csv
+
+                        data = [
+                            {"id": 1,  "name": "Clark Kent",      "age": 35},
+                            {"id": 2,  "name": "Bruce Wayne",      "age": 38},
+                            {"id": 3,  "name": "Diana Prince",     "age": 30},
+                            {"id": 4,  "name": "Peter Parker",     "age": 22},
+                            {"id": 5,  "name": "Tony Stark",       "age": 48},
+                            {"id": 6,  "name": "Natasha Romanoff", "age": 35},
+                            {"id": 7,  "name": "Steve Rogers",     "age": 32},
+                            {"id": 8,  "name": "Bruce Banner",     "age": 40},
+                            {"id": 9,  "name": "Barry Allen",      "age": 28},
+                            {"id": 10, "name": "Wanda Maximoff",   "age": 26},
+                        ]
+
+                        with open("heroes.csv", "w", newline="") as f:
+                            writer = csv.DictWriter(f, fieldnames=["id", "name", "age"])
+                            writer.writeheader()
+                            writer.writerows(data)
+                        PYEOF
+                        python generate.py
 
               - id: anonymize
                 type: io.kestra.plugin.datagen.core.Anonymize
-                from: "{{ outputs.generate.uri }}"
-                contentType: JSON
+                from: "{{ outputs.generate_csv_script.outputFiles['heroes.csv'] }}"
+                contentType: CSV
                 fields:
                   name: "#{name.fullName}"
-                  email: "#{internet.emailAddress}"
+
+              - id: log
+                type: io.kestra.plugin.core.log.Log
+                message: "Anonymized {{ outputs.anonymize.count }} superhero records — result at {{ outputs.anonymize.uri }}"
             """
-        )
+        ),
     }
 )
 @Schema(
-    title = "Anonymize fields in a CSV or JSON file",
+    title = "Anonymize PII fields in a structured file",
     description = """
-        Reads a CSV or JSON file from Kestra internal storage, replaces the specified fields
-        with realistic fake values generated by [Datafaker](https://www.datafaker.net/documentation/expressions/),
+        Reads a CSV or JSON input file from internal storage, replaces the specified fields with
+        realistic fake values generated by [Datafaker](https://www.datafaker.net/documentation/expressions/),
         and writes the anonymized result back to internal storage.
 
-        For JSON files, dot-notation paths (e.g. `user.profile.email`) address nested fields.
-        For CSV files, only flat column names are supported. Paths that do not exist in a record
-        are silently skipped — the record is written as-is. Fields not listed in `fields` are
-        preserved verbatim.
+        For JSON files, fields are addressed with dot-notation to reach nested structures
+        (e.g. `user.profile.email`). For CSV files, fields are matched by column header name.
+        Any field not listed in `fields` is passed through unchanged.
+        A path that does not exist in a record is silently skipped.
         """
 )
 @SuperBuilder
@@ -172,8 +213,12 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
     @Override
     public AnonymizeOutput run(RunContext runContext) throws Exception {
         var rFrom = runContext.render(this.from).as(String.class).orElseThrow();
-        var rFields = runContext.render(this.fields).asMap(String.class, String.class);
-        var rLocale = runContext.render(this.locale).asList(String.class);
+        var rFields = this.fields != null
+            ? runContext.render(this.fields).asMap(String.class, String.class)
+            : Map.<String, String>of();
+        var rLocale = this.locale != null
+            ? runContext.render(this.locale).asList(String.class)
+            : List.<String>of();
 
         var faker = Fakers.create(rLocale);
         var inputUri = URI.create(rFrom);
@@ -184,7 +229,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
 
         try (var inputStream = runContext.storage().getFile(inputUri)) {
             count = switch (resolvedContentType) {
-                case CSV -> processCsv(inputStream, tempFile, faker, rFields, runContext);
+                case CSV -> processCsv(inputStream, tempFile, faker, rFields);
                 case JSON -> processJson(inputStream, tempFile, faker, rFields);
             };
         }
@@ -213,13 +258,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
         );
     }
 
-    private long processCsv(
-        InputStream inputStream,
-        File outputFile,
-        Faker faker,
-        Map<String, String> fields,
-        RunContext runContext
-    ) throws IOException {
+    private long processCsv(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
         try (
             var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
@@ -240,15 +279,13 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
                     continue;
                 }
                 var values = parseCsvLine(line);
-                // extend values array to match header length if needed
                 var record = new ArrayList<>(values);
                 while (record.size() < headers.size()) {
                     record.add("");
                 }
 
                 for (var entry : fields.entrySet()) {
-                    var key = entry.getKey();
-                    var idx = headers.indexOf(key);
+                    var idx = headers.indexOf(entry.getKey());
                     if (idx >= 0 && idx < record.size()) {
                         record.set(idx, Fakers.evaluate(faker, entry.getValue()));
                     }
@@ -262,19 +299,13 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
         }
     }
 
-    private long processJson(
-        InputStream inputStream,
-        File outputFile,
-        Faker faker,
-        Map<String, String> fields
-    ) throws IOException {
-        var mapper = JacksonMapper.ofJson(false);
-        var mapType = new TypeReference<Map<String, Object>>() {};
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private long processJson(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
+        var mapper = JacksonMapper.ofJson();
 
         try (
             var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-            var outputStream = new FileOutputStream(outputFile);
-            var writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8))
+            var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
         ) {
             long count = 0L;
             String line;
@@ -287,9 +318,8 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
 
                 Map<String, Object> record;
                 try {
-                    record = mapper.readValue(jsonLine, mapType);
+                    record = mapper.readValue(jsonLine, mapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
                 } catch (Exception e) {
-                    // Not parseable as JSON object; skip silently
                     writer.write(line);
                     writer.newLine();
                     count++;
@@ -309,13 +339,12 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
     }
 
     /**
-     * Strips a leading Ion type annotation (e.g. {@code 'net.datafaker.Faker'::{...}} → {@code {...}})
+     * Strips a leading Ion type annotation (e.g. {@code 'SomeType'::{...}} → {@code {...}})
      * so Ion-serialized lines produced by Generate can be parsed as plain JSON.
      */
     private static String stripIonAnnotation(String line) {
         var trimmed = line.trim();
-        // Ion annotations end with "::" before the actual value
-        int annotationEnd = trimmed.indexOf("::{");
+        var annotationEnd = trimmed.indexOf("::{");
         if (annotationEnd >= 0) {
             return trimmed.substring(annotationEnd + 2);
         }
@@ -340,10 +369,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
         if (current.containsKey(leaf)) {
             current.put(leaf, Fakers.evaluate(faker, expression));
         }
-        // Key absent at leaf: silently skip
     }
-
-    // --- CSV helpers ---
 
     private static List<String> parseCsvLine(String line) {
         var result = new ArrayList<String>();
@@ -354,7 +380,6 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
             var ch = line.charAt(i);
             if (ch == '"') {
                 if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                    // Escaped quote
                     sb.append('"');
                     i++;
                 } else {
@@ -385,8 +410,6 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
         return sb.toString();
     }
 
-    // --- Inner types ---
-
     public enum ContentType {
         CSV,
         JSON
@@ -401,14 +424,12 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
             title = "Output file URI",
             description = "URI of the anonymized file in Kestra internal storage."
         )
-        @PluginProperty(group = "destination")
         private final URI uri;
 
         @Schema(
             title = "Records processed",
             description = "Number of records read and written (including records where no field was replaced)."
         )
-        @PluginProperty(group = "execution")
         private final long count;
     }
 }
