@@ -1,8 +1,6 @@
 package io.kestra.plugin.datagen.core;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.MappingIterator;
-import com.fasterxml.jackson.databind.SequenceWriter;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
 import io.kestra.core.models.annotations.PluginProperty;
@@ -32,6 +30,10 @@ import java.util.*;
             id: anonymize_csv
             namespace: company.team
 
+            inputs:
+              - id: file
+                type: FILE
+
             tasks:
               - id: anonymize
                 type: io.kestra.plugin.datagen.core.Anonymize
@@ -47,6 +49,10 @@ import java.util.*;
             code = """
             id: anonymize_json
             namespace: company.team
+
+            inputs:
+              - id: file
+                type: FILE
 
             tasks:
               - id: anonymize
@@ -64,6 +70,10 @@ import java.util.*;
             code = """
             id: anonymize_csv_with_locale
             namespace: company.team
+
+            inputs:
+              - id: file
+                type: FILE
 
             tasks:
               - id: anonymize
