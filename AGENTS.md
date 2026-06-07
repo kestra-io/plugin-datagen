@@ -25,6 +25,7 @@ Infrastructure dependencies (Docker Compose services):
 
 ### Key Plugin Classes
 
+- `io.kestra.plugin.datagen.core.Anonymize`
 - `io.kestra.plugin.datagen.core.Generate`
 - `io.kestra.plugin.datagen.core.RealtimeTrigger`
 - `io.kestra.plugin.datagen.core.Trigger`
