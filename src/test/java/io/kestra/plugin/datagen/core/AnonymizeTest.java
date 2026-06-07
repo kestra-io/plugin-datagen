@@ -205,6 +205,56 @@ class AnonymizeTest {
             .hasMessageContaining("content type");
     }
 
+    @Test
+    void shouldNotStripIonAnnotationWhenColonBraceInJsonValue() throws Exception {
+        // A JSON value containing '::{' must not be falsely treated as an Ion annotation prefix
+        var json = "{\"key\":\"foo::{bar}\",\"age\":5}\n";
+        var runContext = runContextFactory.of();
+        var inputUri = uploadText(runContext, json, ".json");
+
+        var task = Anonymize.builder()
+            .id("anonymize-ion-false-positive")
+            .type(Anonymize.class.getName())
+            .from(Property.ofValue(inputUri.toString()))
+            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .fields(Property.ofValue(Map.of("age", "#{number.numberBetween '1','99'}")))
+            .build();
+
+        var output = task.run(runContext);
+
+        assertThat(output.getCount()).isEqualTo(1L);
+        // The record must have been parsed correctly: key field is untouched
+        var result = readOutput(runContext, output.getUri());
+        assertThat(result).contains("\"key\":\"foo::{bar}\"");
+    }
+
+    @Test
+    void shouldWriteThroughAndWarnOnUnparsableJsonLine() throws Exception {
+        // A malformed JSON line must be written through un-anonymized, and count must still increment
+        var json = "not-valid-json\n{\"name\":\"Bob\"}\n";
+        var runContext = runContextFactory.of();
+        var inputUri = uploadText(runContext, json, ".json");
+
+        var task = Anonymize.builder()
+            .id("anonymize-bad-json")
+            .type(Anonymize.class.getName())
+            .from(Property.ofValue(inputUri.toString()))
+            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
+            .build();
+
+        var output = task.run(runContext);
+
+        // Both lines counted (bad line written through, good line anonymized)
+        assertThat(output.getCount()).isEqualTo(2L);
+        var result = readOutput(runContext, output.getUri());
+        var lines = result.strip().split("\n");
+        // First line written through verbatim
+        assertThat(lines[0]).isEqualTo("not-valid-json");
+        // Second line anonymized (name replaced)
+        assertThat(lines[1]).doesNotContain("\"name\":\"Bob\"");
+    }
+
     // --- Helpers ---
 
     private URI uploadText(io.kestra.core.runners.RunContext runContext, String text, String suffix) throws Exception {

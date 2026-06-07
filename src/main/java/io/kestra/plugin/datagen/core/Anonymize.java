@@ -230,7 +230,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
         try (var inputStream = runContext.storage().getFile(inputUri)) {
             count = switch (resolvedContentType) {
                 case CSV -> processCsv(inputStream, tempFile, faker, rFields);
-                case JSON -> processJson(inputStream, tempFile, faker, rFields);
+                case JSON -> processJson(runContext, inputStream, tempFile, faker, rFields);
             };
         }
 
@@ -272,6 +272,12 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
             writer.write(headerLine);
             writer.newLine();
 
+            // Build O(1) column index once so wide CSVs don't pay O(columns) per field per row
+            Map<String, Integer> columnIndex = new HashMap<>();
+            for (int i = 0; i < headers.size(); i++) {
+                columnIndex.put(headers.get(i), i);
+            }
+
             long count = 0L;
             String line;
             while ((line = reader.readLine()) != null) {
@@ -285,7 +291,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
                 }
 
                 for (var entry : fields.entrySet()) {
-                    var idx = headers.indexOf(entry.getKey());
+                    var idx = columnIndex.getOrDefault(entry.getKey(), -1);
                     if (idx >= 0 && idx < record.size()) {
                         record.set(idx, Fakers.evaluate(faker, entry.getValue()));
                     }
@@ -300,7 +306,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private long processJson(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
+    private long processJson(RunContext runContext, InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
         var mapper = JacksonMapper.ofJson();
 
         try (
@@ -320,6 +326,7 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
                 try {
                     record = mapper.readValue(jsonLine, mapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
                 } catch (Exception e) {
+                    runContext.logger().warn("Record {} could not be parsed as JSON and was written through un-anonymized", count);
                     writer.write(line);
                     writer.newLine();
                     count++;
@@ -341,12 +348,15 @@ public class Anonymize extends Task implements RunnableTask<Anonymize.AnonymizeO
     /**
      * Strips a leading Ion type annotation (e.g. {@code 'SomeType'::{...}} → {@code {...}})
      * so Ion-serialized lines produced by Generate can be parsed as plain JSON.
+     * Search is restricted to the prefix before the first '{' to avoid false-positives
+     * when JSON values contain '::{'.
      */
     private static String stripIonAnnotation(String line) {
         var trimmed = line.trim();
-        var annotationEnd = trimmed.indexOf("::{");
-        if (annotationEnd >= 0) {
-            return trimmed.substring(annotationEnd + 2);
+        var firstBrace = trimmed.indexOf('{');
+        var ionMarker = (firstBrace > 0) ? trimmed.lastIndexOf("::{", firstBrace) : -1;
+        if (ionMarker >= 0) {
+            return trimmed.substring(ionMarker + 2);
         }
         return trimmed;
     }
