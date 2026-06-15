@@ -18,22 +18,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @KestraTest
-class AnonymizeTest {
+class PseudonymizeTest {
 
     @Inject
     private RunContextFactory runContextFactory;
 
     @Test
-    void shouldAnonymizeCsvFlatColumns() throws Exception {
+    void shouldPseudonymizeCsvFlatColumns() throws Exception {
         var csv = "name,email,age\nJohn Doe,john@example.com,30\nJane Smith,jane@example.com,25\n";
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, csv, ".csv");
 
-        var task = Anonymize.builder()
-            .id("anonymize-csv")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-csv")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.CSV))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
             .fields(Property.ofValue(Map.of(
                 "name", "#{name.fullName}",
                 "email", "#{internet.emailAddress}"
@@ -64,7 +64,7 @@ class AnonymizeTest {
     }
 
     @Test
-    void shouldAnonymizeJsonNestedPaths() throws Exception {
+    void shouldPseudonymizeJsonNestedPaths() throws Exception {
         var json = """
             {"user":{"profile":{"email":"secret@example.com","name":"John"},"age":30}}
             {"user":{"profile":{"email":"other@example.com","name":"Jane"},"age":25}}
@@ -72,11 +72,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
-        var task = Anonymize.builder()
-            .id("anonymize-json")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-json")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
             .fields(Property.ofValue(Map.of(
                 "user.profile.email", "#{internet.emailAddress}",
                 "user.profile.name", "#{name.fullName}"
@@ -105,11 +105,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, csv, ".csv");
 
-        var task = Anonymize.builder()
-            .id("anonymize-passthrough")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-passthrough")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.CSV))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
             .build();
 
@@ -130,11 +130,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
-        var task = Anonymize.builder()
-            .id("anonymize-skip")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-skip")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
             .fields(Property.ofValue(Map.of(
                 "user.profile.email", "#{internet.emailAddress}"  // path does not exist
             )))
@@ -154,11 +154,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, "name,email\n", ".csv");
 
-        var task = Anonymize.builder()
-            .id("anonymize-empty")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-empty")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.CSV))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
             .build();
 
@@ -173,11 +173,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
-        var task = Anonymize.builder()
-            .id("anonymize-no-fields")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-no-fields")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
             .fields(Property.ofValue(Map.of()))
             .build();
 
@@ -193,9 +193,9 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, "data", ".txt");
 
-        var task = Anonymize.builder()
-            .id("anonymize-unknown-ext")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-unknown-ext")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
             .build();
@@ -212,11 +212,11 @@ class AnonymizeTest {
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
-        var task = Anonymize.builder()
-            .id("anonymize-ion-false-positive")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-ion-false-positive")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
             .fields(Property.ofValue(Map.of("age", "#{number.numberBetween '1','99'}")))
             .build();
 
@@ -230,35 +230,35 @@ class AnonymizeTest {
 
     @Test
     void shouldWriteThroughAndWarnOnUnparsableJsonLine() throws Exception {
-        // A malformed JSON line must be written through un-anonymized, and count must still increment
+        // A malformed JSON line must be written through un-pseudonymized, and count must still increment
         var json = "not-valid-json\n{\"name\":\"Bob\"}\n";
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
-        var task = Anonymize.builder()
-            .id("anonymize-bad-json")
-            .type(Anonymize.class.getName())
+        var task = Pseudonymize.builder()
+            .id("pseudonymize-bad-json")
+            .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Anonymize.ContentType.JSON))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
             .build();
 
         var output = task.run(runContext);
 
-        // Both lines counted (bad line written through, good line anonymized)
+        // Both lines counted (bad line written through, good line pseudonymized)
         assertThat(output.getCount()).isEqualTo(2L);
         var result = readOutput(runContext, output.getUri());
         var lines = result.strip().split("\n");
         // First line written through verbatim
         assertThat(lines[0]).isEqualTo("not-valid-json");
-        // Second line anonymized (name replaced)
+        // Second line pseudonymized (name replaced)
         assertThat(lines[1]).doesNotContain("\"name\":\"Bob\"");
     }
 
     // --- Helpers ---
 
     private URI uploadText(io.kestra.core.runners.RunContext runContext, String text, String suffix) throws Exception {
-        var tempFile = File.createTempFile("anonymize-test", suffix);
+        var tempFile = File.createTempFile("pseudonymize-test", suffix);
         tempFile.deleteOnExit();
         try (var writer = new BufferedWriter(new FileWriter(tempFile, StandardCharsets.UTF_8))) {
             writer.write(text);
