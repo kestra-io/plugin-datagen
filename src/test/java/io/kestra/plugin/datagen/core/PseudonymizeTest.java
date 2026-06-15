@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,7 +31,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, csv, ".csv");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-csv")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
@@ -73,7 +74,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, json, ".json");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-json")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
@@ -106,7 +107,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, csv, ".csv");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-passthrough")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
@@ -131,7 +132,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, json, ".json");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-skip")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
@@ -155,7 +156,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, "name,email\n", ".csv");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-empty")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.CSV))
@@ -174,7 +175,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, json, ".json");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-no-fields")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
@@ -194,7 +195,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, "data", ".txt");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-unknown-ext")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
@@ -213,7 +214,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, json, ".json");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-ion-false-positive")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
@@ -236,7 +237,7 @@ class PseudonymizeTest {
         var inputUri = uploadText(runContext, json, ".json");
 
         var task = Pseudonymize.builder()
-            .id("pseudonymize-bad-json")
+            .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))

@@ -198,7 +198,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
 
     @Schema(
         title = "Content type",
-        description = "Input (and output) format: `CSV` or `JSON`. When absent, auto-detected from the file extension (`.csv` or `.json`)."
+        description = "Input (and output) format: `CSV` or `JSON`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`)."
     )
     @PluginProperty(group = "main")
     private Property<ContentType> contentType;
