@@ -6,12 +6,20 @@ import io.kestra.core.runners.RunContextFactory;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
+import io.kestra.core.serializers.FileSerde;
+import reactor.core.publisher.Flux;
+
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -254,6 +262,54 @@ class PseudonymizeTest {
         assertThat(lines[0]).isEqualTo("not-valid-json");
         // Second line pseudonymized (name replaced)
         assertThat(lines[1]).doesNotContain("\"name\":\"Bob\"");
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "deprecation"})
+    void shouldPseudonymizeIonFields() throws Exception {
+        var runContext = runContextFactory.of();
+
+        var tempFile = File.createTempFile("pseudonymize-test", ".ion");
+        tempFile.deleteOnExit();
+        try (var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tempFile), StandardCharsets.UTF_8))) {
+            FileSerde.writeAll(writer, Flux.just(
+                Map.of("name", "John Doe", "email", "john@example.com", "age", 30),
+                Map.of("name", "Jane Smith", "email", "jane@example.com", "age", 25)
+            )).block();
+        }
+        var inputUri = runContext.storage().putFile(tempFile);
+
+        var task = Pseudonymize.builder()
+            .id(UUID.randomUUID().toString())
+            .type(Pseudonymize.class.getName())
+            .from(Property.ofValue(inputUri.toString()))
+            .contentType(Property.ofValue(Pseudonymize.ContentType.ION))
+            .fields(Property.ofValue(Map.of(
+                "name", "#{name.fullName}",
+                "email", "#{internet.emailAddress}"
+            )))
+            .build();
+
+        var output = task.run(runContext);
+
+        assertThat(output.getCount()).isEqualTo(2L);
+
+        List<Map<String, Object>> results;
+        try (var is = runContext.storage().getFile(output.getUri());
+             var reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            results = FileSerde.<Map<String, Object>>readAll(reader)
+                .map(o -> (Map<String, Object>) o)
+                .collectList()
+                .block();
+        }
+
+        assertThat(results).hasSize(2);
+        // targeted fields replaced
+        assertThat(results.get(0).get("email")).isNotEqualTo("john@example.com");
+        assertThat(results.get(1).get("email")).isNotEqualTo("jane@example.com");
+        // untouched field preserved
+        assertThat(results.get(0).get("age")).isEqualTo(30);
+        assertThat(results.get(1).get("age")).isEqualTo(25);
     }
 
     // --- Helpers ---
