@@ -8,6 +8,7 @@ import io.kestra.core.models.tasks.Output;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.models.tasks.Task;
 import io.kestra.core.runners.RunContext;
+import io.kestra.core.serializers.FileSerde;
 import io.kestra.core.serializers.JacksonMapper;
 import io.kestra.plugin.datagen.internal.Fakers;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -235,7 +236,8 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         try (var inputStream = runContext.storage().getFile(inputUri)) {
             count = switch (resolvedContentType) {
                 case CSV -> processCsv(inputStream, tempFile, faker, rFields);
-                case JSON, ION -> processJson(runContext, inputStream, tempFile, faker, rFields);
+                case JSON -> processJson(runContext, inputStream, tempFile, faker, rFields);
+                case ION -> processIon(inputStream, tempFile, faker, rFields);
             };
         }
 
@@ -349,6 +351,27 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
                 count++;
             }
             return count;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private long processIon(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws Exception {
+        try (
+            var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+            var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
+        ) {
+            var flowable = FileSerde.readAll(reader)
+                .map(row -> {
+                    if (row instanceof Map<?, ?> map) {
+                        var record = (Map<String, Object>) map;
+                        for (var entry : fields.entrySet()) {
+                            applyDotPath(record, entry.getKey(), faker, entry.getValue());
+                        }
+                    }
+                    return row;
+                });
+            Long count = FileSerde.writeAll(writer, flowable).block();
+            return count != null ? count : 0L;
         }
     }
 
