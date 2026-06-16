@@ -198,7 +198,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
 
     @Schema(
         title = "Content type",
-        description = "Input (and output) format: `CSV` or `JSON`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`)."
+        description = "Input (and output) format: `CSV`, `JSON`, or `ION`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`)."
     )
     @PluginProperty(group = "main")
     private Property<ContentType> contentType;
@@ -224,13 +224,18 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         var inputUri = URI.create(rFrom);
         var resolvedContentType = resolveContentType(runContext, inputUri);
 
-        var tempFile = runContext.workingDir().createTempFile(resolvedContentType == ContentType.CSV ? ".csv" : ".json").toFile();
+        var ext = switch (resolvedContentType) {
+            case CSV -> ".csv";
+            case ION -> ".ion";
+            case JSON -> ".json";
+        };
+        var tempFile = runContext.workingDir().createTempFile(ext).toFile();
         long count;
 
         try (var inputStream = runContext.storage().getFile(inputUri)) {
             count = switch (resolvedContentType) {
                 case CSV -> processCsv(inputStream, tempFile, faker, rFields);
-                case JSON -> processJson(runContext, inputStream, tempFile, faker, rFields);
+                case JSON, ION -> processJson(runContext, inputStream, tempFile, faker, rFields);
             };
         }
 
@@ -250,8 +255,10 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         var path = inputUri.getPath().toLowerCase(Locale.ROOT);
         if (path.endsWith(".csv")) {
             return ContentType.CSV;
-        } else if (path.endsWith(".json") || path.endsWith(".ion")) {
+        } else if (path.endsWith(".json")) {
             return ContentType.JSON;
+        } else if (path.endsWith(".ion")) {
+            return ContentType.ION;
         }
         throw new IllegalArgumentException(
             "Cannot auto-detect content type from URI '%s'. Set the 'contentType' property explicitly.".formatted(inputUri)
@@ -422,7 +429,8 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
 
     public enum ContentType {
         CSV,
-        JSON
+        JSON,
+        ION
     }
 
     @Schema(title = "Pseudonymize task output")
