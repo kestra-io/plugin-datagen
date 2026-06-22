@@ -194,11 +194,13 @@ public class RealtimeTrigger extends AbstractTrigger implements RealtimeTriggerI
             return;
         }
 
+        // Always halt the emitter; wait only when killing (blocking).
+        if (dataEmitter != null) {
+            dataEmitter.stop();
+        }
+
         if (wait) {
             try {
-                if (dataEmitter != null) {
-                    dataEmitter.stop();
-                }
                 waitForTermination.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
