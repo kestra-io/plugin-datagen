@@ -2,7 +2,6 @@ id: all_datagen
 namespace: sanitychecks.plugin-datagen
 
 tasks:
-  # Generate a single synthetic JSON object inline
   - id: generate_json
     type: io.kestra.plugin.datagen.core.Generate
     generator:
@@ -13,7 +12,6 @@ tasks:
         email: "#{internet.emailAddress}"
         age: 30
 
-  # Generate a batch and store it as an Ion file in internal storage
   - id: generate_batch
     type: io.kestra.plugin.datagen.core.Generate
     batchSize: 50
