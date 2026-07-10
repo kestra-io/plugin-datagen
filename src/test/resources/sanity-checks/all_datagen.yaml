@@ -1,0 +1,38 @@
+id: all_datagen
+namespace: sanitychecks.plugin-datagen
+
+tasks:
+  # Generate a single synthetic JSON object inline
+  - id: generate_json
+    type: io.kestra.plugin.datagen.core.Generate
+    generator:
+      type: io.kestra.plugin.datagen.generators.JsonObjectGenerator
+      locale: ["en", "US"]
+      value:
+        name: "#{name.fullName}"
+        email: "#{internet.emailAddress}"
+        age: 30
+
+  # Generate a batch and store it as an Ion file in internal storage
+  - id: generate_batch
+    type: io.kestra.plugin.datagen.core.Generate
+    batchSize: 50
+    store: true
+    generator:
+      type: io.kestra.plugin.datagen.generators.JsonObjectGenerator
+      locale: ["en", "US"]
+      value:
+        name: "#{name.fullName}"
+        email: "#{internet.emailAddress}"
+
+  - id: assert
+    type: io.kestra.plugin.core.execution.Assert
+    conditions:
+      - "{{ outputs.generate_json.value.name is not null }}"
+      - "{{ outputs.generate_json.value.email contains '@' }}"
+      - "{{ outputs.generate_batch.count == 50 }}"
+      - "{{ outputs.generate_batch.uri is not null }}"
+
+finally:
+  - id: purge
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
