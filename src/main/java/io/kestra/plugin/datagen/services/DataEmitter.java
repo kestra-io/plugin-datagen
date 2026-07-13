@@ -64,11 +64,12 @@ public class DataEmitter implements Runnable {
                 Data data = producer.produce();
                 Callback cb = stats.nextCompletion(sendStartMs, data.getSize(), stats);
                 doSendData(data, cb);
-                if (throttler.shouldThrottle(options.numExecutions(), sendStartMs)) {
-                    throttler.throttle();
-                }
 
                 i++;
+
+                if (throttler.shouldThrottle(i, sendStartMs)) {
+                    throttler.throttle();
+                }
 
                 if (i >= options.numExecutions()) {
                     logger.info("Reach maximum number of data generation {}", options.numExecutions());

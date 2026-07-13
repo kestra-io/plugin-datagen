@@ -3,7 +3,7 @@
 ## What
 
 - Provides plugin components under `io.kestra.plugin.datagen`.
-- Includes classes such as `Data`, `Trigger`, `RealtimeTrigger`, `Generate`.
+- Includes classes such as `Pseudonymize`, `Data`, `Trigger`, `RealtimeTrigger`, `Generate`.
 
 ## Why
 
@@ -25,6 +25,7 @@ Infrastructure dependencies (Docker Compose services):
 
 ### Key Plugin Classes
 
+- `io.kestra.plugin.datagen.core.Pseudonymize` — reads a CSV or JSON file from internal storage, replaces specified fields with Datafaker-generated fake values, and writes the pseudonymized output back to internal storage
 - `io.kestra.plugin.datagen.core.Generate`
 - `io.kestra.plugin.datagen.core.RealtimeTrigger`
 - `io.kestra.plugin.datagen.core.Trigger`

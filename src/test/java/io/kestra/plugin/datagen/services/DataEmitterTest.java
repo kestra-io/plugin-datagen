@@ -55,4 +55,48 @@ class DataEmitterTest {
         // Then
         assertThat(generated.size()).isEqualTo(10);
     }
+
+    @Test
+    void shouldEnforceMaxThroughput() throws IllegalVariableEvaluationException {
+        // Given a finite run with a bounded throughput.
+        // The throttler is fed the running sent count, so it actually limits the rate:
+        // emitting N records at T/s must take at least ~ (N - 1) / T seconds.
+        final long throughput = 20L;
+        final long numExecutions = 20L;
+
+        List<Data> generated = new ArrayList<>((int) numExecutions);
+        RunContext runContext = runContextFactory.of();
+        StringValueGenerator generator = StringValueGenerator
+            .builder()
+            .value("value")
+            .build();
+        generator.init(runContext);
+        Logger logger = runContext.logger();
+
+        Consumer<Data> consumer = generated::add;
+        Producer<Data> producer = () -> {
+            String val = generator.produce();
+            return Data
+                .builder()
+                .value(val)
+                .size((long) val.length())
+                .build();
+        };
+
+        DataEmitterOptions options = new DataEmitterOptions(numExecutions, throughput, Duration.ZERO);
+        DataEmitter task = new DataEmitter(producer, consumer, options, logger);
+
+        // When
+        long startMs = System.currentTimeMillis();
+        task.run();
+        long elapsedMs = System.currentTimeMillis() - startMs;
+
+        // Then
+        // All records are emitted...
+        assertThat(generated.size()).isEqualTo((int) numExecutions);
+        // ...and throttling kept the effective rate at or below the configured throughput.
+        // Without enforcement the run would complete almost instantly; here it must be throttled.
+        long minExpectedMs = (numExecutions - 1) * 1000L / throughput;
+        assertThat(elapsedMs).isGreaterThanOrEqualTo((long) (minExpectedMs * 0.7));
+    }
 }
