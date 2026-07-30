@@ -111,7 +111,7 @@ import java.util.*;
 
             tasks:
               - id: working_directory
-                type: io.kestra.plugin.core.flow.WorkingDir
+                type: io.kestra.plugin.core.flow.WorkingDirectory
                 tasks:
                   - id: generate_csv_script
                     type: io.kestra.plugin.scripts.python.Commands
