@@ -1,5 +1,5 @@
 @PluginSubGroup(
-    title = "Generators",
+    title = "Datagen Generators",
     description = "This sub-group of plugins contains data generators for the Kestra Datagen plugin.",
     categories = {
         PluginSubGroup.PluginCategory.DATA
