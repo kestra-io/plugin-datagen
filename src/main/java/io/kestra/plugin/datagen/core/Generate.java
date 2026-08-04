@@ -122,7 +122,7 @@ import io.kestra.core.models.annotations.PluginProperty;
 )
 @Schema(
     title = "Generate synthetic data",
-    description = "Runs the configured generator (e.g., [Datafaker](https://www.datafaker.net/documentation/expressions/)) once (inline) or for a batch when `store` is true. When stored, results are written as Ion lines to internal storage; defaults are `store=false` and `batchSize=1`."
+    description = "Runs the configured generator (e.g., [Datafaker](https://www.datafaker.net/documentation/expressions/)) once (inline) or for a batch when `store` is true. When stored, results are written as ION lines to internal storage; defaults are `store=false` and `batchSize=1`."
 )
 @SuperBuilder
 @NoArgsConstructor

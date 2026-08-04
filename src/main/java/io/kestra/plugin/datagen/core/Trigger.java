@@ -61,7 +61,7 @@ import java.util.Optional;
 )
 @Schema(
     title = "Poll to generate data batches",
-    description = "Periodically invokes the generator and emits an execution. Defaults: `store=false`, `batchSize=1`, `interval=PT1S`. Use `store=true` to persist Ion lines to internal storage instead of embedding the value."
+    description = "Periodically invokes the generator and emits an execution. Defaults: `store=false`, `batchSize=1`, `interval=PT1S`. Use `store=true` to persist ION lines to internal storage instead of embedding the value."
 )
 @NoArgsConstructor
 @SuperBuilder

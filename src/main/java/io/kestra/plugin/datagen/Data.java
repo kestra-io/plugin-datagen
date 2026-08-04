@@ -15,7 +15,7 @@ public class Data implements io.kestra.core.models.tasks.Output {
 
     @Schema(
         title = "Generated size (bytes)",
-        description = "Total size in bytes of the returned value or stored Ion file."
+        description = "Total size in bytes of the returned value or stored ION file."
     )
     @PluginProperty(group = "advanced")
     private Long size;

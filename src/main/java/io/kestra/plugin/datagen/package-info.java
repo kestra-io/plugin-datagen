@@ -1,6 +1,6 @@
 @PluginSubGroup(
-    title = "Kestra DataGen plugin",
-    description = "A Kestra plugin that triggers executions by generating custom data payloads.",
+    title = "Datagen",
+    description = "A Kestra plugin that generates synthetic data payloads — inline, in batches, or as a stream — and can pseudonymize PII in existing files.",
     categories = {
         PluginSubGroup.PluginCategory.DATA
     }

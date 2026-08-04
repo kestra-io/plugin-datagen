@@ -11,7 +11,7 @@ public interface BatchGenerateInterface extends GenerateInterface{
     
     @Schema(
         title = "Store generated data",
-        description = "Persist output to Kestra internal storage as Ion lines when true; defaults to false to return the value inline."
+        description = "Persist output to Kestra internal storage as ION lines when true; defaults to false to return the value inline."
     )
     @PluginProperty(group = "advanced")
     Property<Boolean> getStore();

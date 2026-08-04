@@ -1,5 +1,6 @@
 @PluginSubGroup(
-    description = "This sub-group of plugins contains core tasks and triggers for Kestra DataGen plugin.",
+    title = "Datagen Core",
+    description = "This sub-group of plugins contains core tasks and triggers for the Kestra Datagen plugin.",
     categories = {
         PluginSubGroup.PluginCategory.DATA
     }
