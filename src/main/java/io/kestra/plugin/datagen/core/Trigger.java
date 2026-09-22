@@ -10,10 +10,12 @@ import io.kestra.core.models.triggers.PollingTriggerInterface;
 import io.kestra.core.models.triggers.TriggerContext;
 import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.models.triggers.TriggerService;
+import io.kestra.core.runners.RunContext;
 import io.kestra.plugin.datagen.BatchGenerateInterface;
 import io.kestra.plugin.datagen.Data;
 import io.kestra.plugin.datagen.model.DataGenerator;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -23,6 +25,10 @@ import lombok.experimental.SuperBuilder;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Plugin(
     aliases = {"io.kestra.plugin.datagen.Trigger"},
@@ -81,8 +87,23 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
     @Builder.Default
     private final Duration interval = Duration.ofSeconds(1);
 
+    @Builder.Default
+    @Getter(AccessLevel.NONE)
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    private final AtomicBoolean isActive = new AtomicBoolean(true);
+
+    @Getter(AccessLevel.NONE)
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    private volatile CompletableFuture<Data> generation;
+
     @Override
     public Optional<Execution> evaluate(ConditionContext conditionContext, TriggerContext context) throws Exception {
+        if (!isActive.get()) {
+            return Optional.empty();
+        }
+
         Generate task = Generate
             .builder()
             .id(this.id)
@@ -93,7 +114,47 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
             .generator(generator)
             .build();
 
-        Data output = task.run(conditionContext.getRunContext());
-        return Optional.of(TriggerService.generateExecution(this, conditionContext, context, output));
+        RunContext runContext = conditionContext.getRunContext();
+
+        // run off the worker thread so kill() can abandon a blocked/slow generation without
+        // waiting for it: produce() ignores interrupts and putFile() can block on IO.
+        CompletableFuture<Data> future = CompletableFuture.supplyAsync(
+            () -> {
+                try {
+                    return task.run(runContext);
+                } catch (Exception e) {
+                    throw new CompletionException(e);
+                }
+            },
+            runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id).start(runnable)
+        );
+        this.generation = future;
+
+        try {
+            Data output = future.join();
+            return Optional.of(TriggerService.generateExecution(this, conditionContext, context, output));
+        } catch (CancellationException e) {
+            runContext.logger().debug("Trigger '{}' was killed while generating; the in-flight generation keeps running in the background until it completes.", this.id);
+            return Optional.empty();
+        } catch (CompletionException e) {
+            switch (e.getCause()) {
+                case Exception cause -> throw cause;
+                case null, default -> throw e;
+            }
+        } finally {
+            this.generation = null;
+        }
+    }
+
+    @Override
+    public void kill() {
+        if (!isActive.compareAndSet(true, false)) {
+            return;
+        }
+
+        CompletableFuture<Data> inFlight = this.generation;
+        if (inFlight != null) {
+            inFlight.cancel(true);
+        }
     }
 }
