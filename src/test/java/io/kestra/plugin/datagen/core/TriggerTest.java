@@ -14,9 +14,7 @@ import lombok.experimental.SuperBuilder;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.time.Duration;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -32,7 +30,7 @@ class TriggerTest {
 
     @Test
     void shouldGenerateExecutionWithInlineValue() throws Exception {
-        Trigger trigger = Trigger.builder()
+        var trigger = Trigger.builder()
             .id(UUID.randomUUID().toString())
             .type(Trigger.class.getName())
             .store(Property.ofValue(false))
@@ -40,10 +38,10 @@ class TriggerTest {
             .generator(StringValueGenerator.builder().value("hello").build())
             .build();
 
-        Optional<Execution> evaluate = evaluate(trigger);
+        var evaluate = evaluate(trigger);
 
         assertThat(evaluate).isPresent();
-        Map<String, Object> variables = evaluate.get().getTrigger().getVariables();
+        var variables = evaluate.get().getTrigger().getVariables();
         assertThat(variables.get("value")).isEqualTo("hello");
         assertThat(variables.get("count")).isEqualTo(1);
         assertThat(variables.get("uri")).isNull();
@@ -51,7 +49,7 @@ class TriggerTest {
 
     @Test
     void shouldGenerateExecutionWithStoredFile() throws Exception {
-        Trigger trigger = Trigger.builder()
+        var trigger = Trigger.builder()
             .id(UUID.randomUUID().toString())
             .type(Trigger.class.getName())
             .store(Property.ofValue(true))
@@ -59,10 +57,10 @@ class TriggerTest {
             .generator(StringValueGenerator.builder().value("hello").build())
             .build();
 
-        Optional<Execution> evaluate = evaluate(trigger);
+        var evaluate = evaluate(trigger);
 
         assertThat(evaluate).isPresent();
-        Map<String, Object> variables = evaluate.get().getTrigger().getVariables();
+        var variables = evaluate.get().getTrigger().getVariables();
         assertThat(variables.get("value")).isNull();
         assertThat(variables.get("count")).isEqualTo(3);
         assertThat(variables.get("uri")).isNotNull();
@@ -70,7 +68,7 @@ class TriggerTest {
 
     @Test
     void shouldUnblockEvaluateWhenKilled() throws Exception {
-        Trigger trigger = Trigger.builder()
+        var trigger = Trigger.builder()
             .id(UUID.randomUUID().toString())
             .type(Trigger.class.getName())
             .store(Property.ofValue(false))
@@ -78,7 +76,7 @@ class TriggerTest {
             .generator(new SleepingGenerator(Duration.ofSeconds(30)))
             .build();
 
-        CompletableFuture<Optional<Execution>> future = CompletableFuture.supplyAsync(() -> {
+        var future = CompletableFuture.supplyAsync(() -> {
             try {
                 return evaluate(trigger);
             } catch (Exception e) {
@@ -87,7 +85,7 @@ class TriggerTest {
         });
 
         // Wait until the trigger has actually submitted the (currently sleeping) generation.
-        Field generationField = Trigger.class.getDeclaredField("generation");
+        var generationField = Trigger.class.getDeclaredField("generation");
         generationField.setAccessible(true);
         Awaitility.await().atMost(Duration.ofSeconds(2)).until(() -> generationField.get(trigger) != null);
 
@@ -98,9 +96,42 @@ class TriggerTest {
     }
 
     @Test
+    void shouldUnblockEvaluateWhenKilledImmediately() throws Exception {
+        // Unlike shouldUnblockEvaluateWhenKilled above, kill() is not synchronized to run after
+        // `this.generation` has been assigned: it races evaluate() from the very start, so on at
+        // least some iterations it lands in the narrow window between the isActive check at the
+        // top of evaluate() and the generation assignment further down. Before the fix, hitting
+        // that window meant kill() cancelled nothing (generation was still null) and evaluate()
+        // went on to block on future.join() for the full 30s generation duration, failing the
+        // Awaitility assertion below.
+        for (var i = 0; i < 20; i++) {
+            var trigger = Trigger.builder()
+                .id(UUID.randomUUID().toString())
+                .type(Trigger.class.getName())
+                .store(Property.ofValue(false))
+                .batchSize(Property.ofValue(1))
+                .generator(new SleepingGenerator(Duration.ofSeconds(30)))
+                .build();
+
+            var future = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return evaluate(trigger);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            trigger.kill();
+
+            Awaitility.await().atMost(Duration.ofSeconds(2)).until(future::isDone);
+            assertThat(future.get()).isEmpty();
+        }
+    }
+
+    @Test
     void shouldReturnEmptyWhenKilledBeforeEvaluate() throws Exception {
-        AtomicInteger produceCount = new AtomicInteger(0);
-        Trigger trigger = Trigger.builder()
+        var produceCount = new AtomicInteger(0);
+        var trigger = Trigger.builder()
             .id(UUID.randomUUID().toString())
             .type(Trigger.class.getName())
             .store(Property.ofValue(false))
@@ -109,7 +140,7 @@ class TriggerTest {
             .build();
 
         trigger.kill();
-        Optional<Execution> evaluate = evaluate(trigger);
+        var evaluate = evaluate(trigger);
 
         assertThat(evaluate).isEmpty();
         assertThat(produceCount.get()).isZero();

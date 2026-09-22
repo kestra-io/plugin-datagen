@@ -29,6 +29,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Plugin(
     aliases = {"io.kestra.plugin.datagen.Trigger"},
@@ -98,13 +99,18 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
     @ToString.Exclude
     private volatile CompletableFuture<Data> generation;
 
+    // Disambiguates the virtual thread name of each evaluation, including orphaned (killed but
+    // still-running) generations, so concurrent orphans are distinguishable in a thread dump.
+    // Static fields are already ignored by Lombok's generated getter/equals/hashCode/toString.
+    private static final AtomicLong INVOCATION_COUNTER = new AtomicLong();
+
     @Override
     public Optional<Execution> evaluate(ConditionContext conditionContext, TriggerContext context) throws Exception {
         if (!isActive.get()) {
             return Optional.empty();
         }
 
-        Generate task = Generate
+        var task = Generate
             .builder()
             .id(this.id)
             .type(Generate.class.getName())
@@ -114,24 +120,44 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
             .generator(generator)
             .build();
 
-        RunContext runContext = conditionContext.getRunContext();
+        var runContext = conditionContext.getRunContext();
+        var invocationId = INVOCATION_COUNTER.incrementAndGet();
 
         // run off the worker thread so kill() can abandon a blocked/slow generation without
-        // waiting for it: produce() ignores interrupts and putFile() can block on IO.
-        CompletableFuture<Data> future = CompletableFuture.supplyAsync(
+        // waiting for it: produce() ignores interrupts and putFile() can block on IO. There is no
+        // cap on the number of orphaned generations that can pile up if kill() is repeatedly
+        // called against a genuinely stuck generator; in the normal case each one is bounded by
+        // batchSize, so this is an accepted limitation rather than something bounded here.
+        var future = CompletableFuture.supplyAsync(
             () -> {
                 try {
-                    return task.run(runContext);
+                    var output = task.run(runContext);
+                    if (!isActive.get()) {
+                        // evaluate() already returned (via CancellationException below) by the time
+                        // this finished: surface the otherwise-silent outcome of the orphaned generation.
+                        runContext.logger().debug("Trigger '{}' orphaned generation (invocation {}) completed successfully after being killed.", this.id, invocationId);
+                    }
+                    return output;
                 } catch (Exception e) {
+                    if (!isActive.get()) {
+                        runContext.logger().warn("Trigger '{}' orphaned generation (invocation {}) failed after being killed.", this.id, invocationId, e);
+                    }
                     throw new CompletionException(e);
                 }
             },
-            runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id).start(runnable)
+            runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
         );
         this.generation = future;
 
+        // kill() may have flipped isActive between the check above and this assignment; re-check
+        // and self-cancel here so a kill() landing in that window isn't silently lost, which would
+        // otherwise leave future.join() below blocking forever with no further kill signal to come.
+        if (!isActive.get()) {
+            future.cancel(false);
+        }
+
         try {
-            Data output = future.join();
+            var output = future.join();
             return Optional.of(TriggerService.generateExecution(this, conditionContext, context, output));
         } catch (CancellationException e) {
             runContext.logger().debug("Trigger '{}' was killed while generating; the in-flight generation keeps running in the background until it completes.", this.id);
@@ -152,9 +178,13 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
             return;
         }
 
-        CompletableFuture<Data> inFlight = this.generation;
+        var inFlight = this.generation;
         if (inFlight != null) {
-            inFlight.cancel(true);
+            // cancel(boolean) on a CompletableFuture ignores its argument entirely (per its javadoc)
+            // and never interrupts the running task either way; false is used here simply to avoid
+            // implying otherwise. The orphaned generation keeps running to let a store: true write
+            // finish rather than being left half-written.
+            inFlight.cancel(false);
         }
     }
 }
