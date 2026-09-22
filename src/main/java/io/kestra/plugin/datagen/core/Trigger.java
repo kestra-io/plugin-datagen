@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Plugin(
     aliases = {"io.kestra.plugin.datagen.Trigger"},
@@ -123,6 +124,13 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
         var runContext = conditionContext.getRunContext();
         var invocationId = INVOCATION_COUNTER.incrementAndGet();
 
+        // Indirection to let the async task below check whether *its own* future was cancelled:
+        // `future` can't be referenced inside its own initializer (illegal forward reference), and
+        // `this.generation` isn't safe to check instead since it may already point to a later
+        // invocation's future by the time an orphaned generation finishes. Set right after `future`
+        // is created.
+        var futureRef = new AtomicReference<CompletableFuture<Data>>();
+
         // run off the worker thread so kill() can abandon a blocked/slow generation without
         // waiting for it: produce() ignores interrupts and putFile() can block on IO. There is no
         // cap on the number of orphaned generations that can pile up if kill() is repeatedly
@@ -132,14 +140,18 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
             () -> {
                 try {
                     var output = task.run(runContext);
-                    if (!isActive.get()) {
+                    var self = futureRef.get();
+                    if (self != null && self.isCancelled()) {
                         // evaluate() already returned (via CancellationException below) by the time
                         // this finished: surface the otherwise-silent outcome of the orphaned generation.
+                        // Checked against the future itself (not isActive) so a kill() that races the
+                        // completion but arrives too late to actually cancel() isn't misreported as orphaned.
                         runContext.logger().debug("Trigger '{}' orphaned generation (invocation {}) completed successfully after being killed.", this.id, invocationId);
                     }
                     return output;
                 } catch (Exception e) {
-                    if (!isActive.get()) {
+                    var self = futureRef.get();
+                    if (self != null && self.isCancelled()) {
                         runContext.logger().warn("Trigger '{}' orphaned generation (invocation {}) failed after being killed.", this.id, invocationId, e);
                     }
                     throw new CompletionException(e);
@@ -147,6 +159,7 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
             },
             runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
         );
+        futureRef.set(future);
         this.generation = future;
 
         // kill() may have flipped isActive between the check above and this assignment; re-check
