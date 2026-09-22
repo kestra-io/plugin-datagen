@@ -95,6 +95,13 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
     @ToString.Exclude
     private final AtomicBoolean isActive = new AtomicBoolean(true);
 
+    // Safe as a single shared field (not per-invocation state) because Kestra's scheduler
+    // guarantees at most one in-flight evaluate() per trigger instance by default: this class
+    // doesn't override AbstractTrigger#allowConcurrent (defaults to false), so
+    // TriggerScheduler#processWorkerTrigger locks the trigger's TriggerState before dispatch and
+    // TriggerStateStore excludes locked triggers from being fetched again, until the worker
+    // reports the evaluate() result. Overlapping evaluate() calls on the same instance therefore
+    // cannot happen under this trigger's configuration.
     @Getter(AccessLevel.NONE)
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
@@ -195,8 +202,15 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
         if (inFlight != null) {
             // cancel(boolean) on a CompletableFuture ignores its argument entirely (per its javadoc)
             // and never interrupts the running task either way; false is used here simply to avoid
-            // implying otherwise. The orphaned generation keeps running to let a store: true write
-            // finish rather than being left half-written.
+            // implying otherwise. The orphaned generation is left running not because it can safely
+            // finish, but because there's no way to meaningfully stop it once started. In practice
+            // the worker synchronously tears down this trigger's RunContext (including its working
+            // directory) right after evaluate() returns, so the orphan's later file/storage writes
+            // will almost always fail with an IOException (already logged as the "orphaned
+            // generation ... failed" warn above). On the rare timing window where the write
+            // completes first, it produces an ION file in internal storage that no Execution ever
+            // references - an accepted, unbounded-but-rare leak, the same class of tradeoff as the
+            // unbounded-orphans limitation already documented above.
             inFlight.cancel(false);
         }
     }
