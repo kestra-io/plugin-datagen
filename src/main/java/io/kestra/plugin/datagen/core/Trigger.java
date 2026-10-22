@@ -139,10 +139,13 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
         var futureRef = new AtomicReference<CompletableFuture<Data>>();
 
         // run off the worker thread so kill() can abandon a blocked/slow generation without
-        // waiting for it: produce() ignores interrupts and putFile() can block on IO. There is no
-        // cap on the number of orphaned generations that can pile up if kill() is repeatedly
-        // called against a genuinely stuck generator; in the normal case each one is bounded by
-        // batchSize, so this is an accepted limitation rather than something bounded here.
+        // waiting for it: produce() ignores interrupts and putFile() can block on IO. A platform
+        // daemon thread is used rather than a virtual one because generation is CPU-bound and
+        // never yields: on a small worker, virtual threads would keep every carrier busy and
+        // starve the rest of the worker JVM. Daemon keeps that thread from delaying JVM exit.
+        // There is no cap on the number of orphaned generations that can pile up if kill() is
+        // repeatedly called against a genuinely stuck generator; in the normal case each one is
+        // bounded by batchSize, so this is an accepted limitation rather than something bounded here.
         var future = CompletableFuture.supplyAsync(
             () -> {
                 try {
@@ -164,7 +167,7 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
                     throw new CompletionException(e);
                 }
             },
-            runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
+            runnable -> Thread.ofPlatform().daemon(true).name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
         );
         futureRef.set(future);
         this.generation = future;
