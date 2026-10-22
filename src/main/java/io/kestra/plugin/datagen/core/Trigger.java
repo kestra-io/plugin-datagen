@@ -144,8 +144,10 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
         // never yields: on a small worker, virtual threads would keep every carrier busy and
         // starve the rest of the worker JVM. Daemon keeps that thread from delaying JVM exit.
         // There is no cap on the number of orphaned generations that can pile up if kill() is
-        // repeatedly called against a genuinely stuck generator; in the normal case each one is
-        // bounded by batchSize, so this is an accepted limitation rather than something bounded here.
+        // repeatedly called against a genuinely stuck generator. In the normal case each one is
+        // bounded by batchSize, so this is an accepted limitation rather than something bounded
+        // here, but note that each orphan now holds a real OS thread and stack until it finishes,
+        // making the per-orphan cost higher than it was with a virtual thread.
         var future = CompletableFuture.supplyAsync(
             () -> {
                 try {
