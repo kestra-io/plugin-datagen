@@ -107,7 +107,7 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
     @ToString.Exclude
     private volatile CompletableFuture<Data> generation;
 
-    // Disambiguates the virtual thread name of each evaluation, including orphaned (killed but
+    // Disambiguates the platform thread name of each evaluation, including orphaned (killed but
     // still-running) generations, so concurrent orphans are distinguishable in a thread dump.
     // Static fields are already ignored by Lombok's generated getter/equals/hashCode/toString.
     private static final AtomicLong INVOCATION_COUNTER = new AtomicLong();
@@ -164,7 +164,7 @@ public class Trigger extends AbstractTrigger implements PollingTriggerInterface,
                     throw new CompletionException(e);
                 }
             },
-            runnable -> Thread.ofVirtual().name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
+            runnable -> Thread.ofPlatform().daemon(true).name("datagen-trigger-" + this.id + "-" + invocationId).start(runnable)
         );
         futureRef.set(future);
         this.generation = future;

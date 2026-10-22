@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -64,6 +65,26 @@ class TriggerTest {
         assertThat(variables.get("value")).isNull();
         assertThat(variables.get("count")).isEqualTo(3);
         assertThat(variables.get("uri")).isNotNull();
+    }
+
+    @Test
+    void shouldRunGenerationOnPlatformDaemonThread() throws Exception {
+        var generationThread = new AtomicReference<Thread>();
+        var trigger = Trigger.builder()
+            .id(UUID.randomUUID().toString())
+            .type(Trigger.class.getName())
+            .store(Property.ofValue(false))
+            .batchSize(Property.ofValue(1))
+            .generator(new ThreadCapturingGenerator(generationThread))
+            .build();
+
+        var evaluate = evaluate(trigger);
+
+        assertThat(evaluate).isPresent();
+        assertThat(generationThread.get()).isNotNull();
+        assertThat(generationThread.get().isVirtual()).isFalse();
+        assertThat(generationThread.get().isDaemon()).isTrue();
+        assertThat(generationThread.get().getName()).startsWith("datagen-trigger-" + trigger.getId() + "-");
     }
 
     @Test
@@ -171,6 +192,23 @@ class TriggerTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+            return "value";
+        }
+    }
+
+    @SuperBuilder
+    @NoArgsConstructor
+    @Getter
+    public static class ThreadCapturingGenerator extends DataGenerator<String> {
+        private AtomicReference<Thread> thread;
+
+        ThreadCapturingGenerator(AtomicReference<Thread> thread) {
+            this.thread = thread;
+        }
+
+        @Override
+        public String produce() {
+            thread.set(Thread.currentThread());
             return "value";
         }
     }
