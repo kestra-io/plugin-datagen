@@ -334,7 +334,9 @@ class PseudonymizeTest {
         }
 
         assertThat(results).hasSize(2);
-        assertThat(results.get(0).get("email")).isNotEqualTo("john@example.com");
+        assertThat(results.getFirst().get("name")).isNotEqualTo("John Doe");
+        assertThat(results.get(1).get("name")).isNotEqualTo("Jane Smith");
+        assertThat(results.getFirst().get("email")).isNotEqualTo("john@example.com");
         assertThat(results.get(1).get("email")).isNotEqualTo("jane@example.com");
         assertThat(results.get(0).get("age")).isEqualTo(30);
         assertThat(results.get(1).get("age")).isEqualTo(25);
