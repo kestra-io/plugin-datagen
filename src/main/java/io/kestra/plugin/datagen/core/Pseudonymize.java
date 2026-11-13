@@ -169,7 +169,7 @@ import java.util.*;
         (e.g. `user.profile.email`). For CSV files, fields are matched by column header name.
         Any field not listed in `fields` is passed through unchanged.
         A path that does not exist in a record is silently skipped.
-        With `contentType: JSON`, a record that cannot be parsed as JSON fails the task instead of being written to the output.
+        JSON input must be newline-delimited, one object per line. A line that is not a JSON object fails the task.
         """
 )
 @SuperBuilder
@@ -200,7 +200,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
 
     @Schema(
         title = "Content type",
-        description = "Input (and output) format: `CSV`, `JSON`, or `ION`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`)."
+        description = "Input (and output) format: `CSV`, `JSON`, or `ION`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`). `JSON` must be one object per line, otherwise the task fails."
     )
     @PluginProperty(group = "main")
     private Property<ContentType> contentType;
@@ -324,8 +324,10 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
             var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
         ) {
             long count = 0L;
+            long lineNumber = 0L;
             String line;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
                 if (line.isBlank()) {
                     continue;
                 }
@@ -336,9 +338,12 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
                 try {
                     record = mapper.readValue(jsonLine, mapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
                 } catch (Exception e) {
-                    // Cause is dropped on purpose: Jackson messages quote the offending input, which is PII
+                    record = null;
+                }
+                if (record == null) {
+                    // No cause on purpose: Jackson messages quote the offending input, which is PII
                     throw new IllegalArgumentException(
-                        "Record " + count + " could not be parsed as JSON, so it was not pseudonymized. If the input is an Ion file, set `contentType: ION`."
+                        "Line %d is not a JSON object. JSON input must have one object per line. If the input is an Ion file, set `contentType: ION`.".formatted(lineNumber)
                     );
                 }
 

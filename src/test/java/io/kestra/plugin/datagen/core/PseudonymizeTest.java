@@ -239,7 +239,7 @@ class PseudonymizeTest {
 
     @Test
     void shouldFailWithoutLeakingContentOnUnparsableJsonLine() throws Exception {
-        var json = "{\"name\":\"Alice\"}\nsecret-pii-not-json\n";
+        var json = "{\"name\":\"Bob\"}\n{name:\"Alice-secret\"}\n";
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
@@ -253,9 +253,10 @@ class PseudonymizeTest {
 
         assertThatThrownBy(() -> task.run(runContext))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Record 1")
+            .hasNoCause()
+            .hasMessageContaining("Line 2")
             .hasMessageContaining("contentType: ION")
-            .hasMessageNotContaining("secret-pii-not-json");
+            .hasMessageNotContaining("Alice-secret");
     }
 
     @Test
