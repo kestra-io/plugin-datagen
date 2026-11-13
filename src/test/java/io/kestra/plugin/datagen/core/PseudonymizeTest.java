@@ -238,9 +238,8 @@ class PseudonymizeTest {
     }
 
     @Test
-    void shouldWriteThroughAndWarnOnUnparsableJsonLine() throws Exception {
-        // A malformed JSON line must be written through un-pseudonymized, and count must still increment
-        var json = "not-valid-json\n{\"name\":\"Bob\"}\n";
+    void shouldFailWithoutLeakingContentOnUnparsableJsonLine() throws Exception {
+        var json = "{\"name\":\"Alice\"}\nsecret-pii-not-json\n";
         var runContext = runContextFactory.of();
         var inputUri = uploadText(runContext, json, ".json");
 
@@ -252,16 +251,11 @@ class PseudonymizeTest {
             .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
             .build();
 
-        var output = task.run(runContext);
-
-        // Both lines counted (bad line written through, good line pseudonymized)
-        assertThat(output.getCount()).isEqualTo(2L);
-        var result = readOutput(runContext, output.getUri());
-        var lines = result.strip().split("\n");
-        // First line written through verbatim
-        assertThat(lines[0]).isEqualTo("not-valid-json");
-        // Second line pseudonymized (name replaced)
-        assertThat(lines[1]).doesNotContain("\"name\":\"Bob\"");
+        assertThatThrownBy(() -> task.run(runContext))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Record 1")
+            .hasMessageContaining("contentType: ION")
+            .hasMessageNotContaining("secret-pii-not-json");
     }
 
     @Test

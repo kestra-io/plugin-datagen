@@ -169,6 +169,7 @@ import java.util.*;
         (e.g. `user.profile.email`). For CSV files, fields are matched by column header name.
         Any field not listed in `fields` is passed through unchanged.
         A path that does not exist in a record is silently skipped.
+        With `contentType: JSON`, a record that cannot be parsed as JSON fails the task instead of being written to the output.
         """
 )
 @SuperBuilder
@@ -236,7 +237,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         try (var inputStream = runContext.storage().getFile(inputUri)) {
             count = switch (resolvedContentType) {
                 case CSV -> processCsv(inputStream, tempFile, faker, rFields);
-                case JSON -> processJson(runContext, inputStream, tempFile, faker, rFields);
+                case JSON -> processJson(inputStream, tempFile, faker, rFields);
                 case ION -> processIon(inputStream, tempFile, faker, rFields);
             };
         }
@@ -315,7 +316,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private long processJson(RunContext runContext, InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
+    private long processJson(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
         var mapper = JacksonMapper.ofJson();
 
         try (
@@ -335,11 +336,10 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
                 try {
                     record = mapper.readValue(jsonLine, mapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
                 } catch (Exception e) {
-                    runContext.logger().warn("Record {} could not be parsed as JSON and was written through un-pseudonymized", count);
-                    writer.write(line);
-                    writer.newLine();
-                    count++;
-                    continue;
+                    // Cause is dropped on purpose: Jackson messages quote the offending input, which is PII
+                    throw new IllegalArgumentException(
+                        "Record " + count + " could not be parsed as JSON, so it was not pseudonymized. If the input is an Ion file, set `contentType: ION`."
+                    );
                 }
 
                 for (var entry : fields.entrySet()) {
