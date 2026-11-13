@@ -431,9 +431,10 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
     @SuppressWarnings("unchecked")
     private long processIon(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws Exception {
         try (
+            var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
         ) {
-            var flowable = FileSerde.readAll(inputStream)
+            var flowable = FileSerde.readAll(reader)
                 .map(row -> {
                     if (row instanceof Map<?, ?> map) {
                         var record = (Map<String, Object>) map;
