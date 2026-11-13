@@ -1,5 +1,9 @@
 package io.kestra.plugin.datagen.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
 import io.kestra.core.models.annotations.PluginProperty;
@@ -50,17 +54,17 @@ import java.util.*;
             """
         ),
         @Example(
-            title = "Pseudonymize nested fields in a JSON export",
+            title = "Pseudonymize nested fields in the output of a previous task",
             full = true,
             code = """
-            id: pseudonymize_customer_json
+            id: pseudonymize_customer_ion
             namespace: company.team
 
             tasks:
               - id: pseudonymize
                 type: io.kestra.plugin.datagen.core.Pseudonymize
                 from: "{{ outputs.previous_task.uri }}"
-                contentType: JSON
+                contentType: ION
                 locale: ["fr", "FR"]
                 fields:
                   "user.profile.fullName": "#{name.fullName}"
@@ -70,7 +74,7 @@ import java.util.*;
 
               - id: log
                 type: io.kestra.plugin.core.log.Log
-                message: "Pseudonymized {{ outputs.pseudonymize.count }} JSON records — result at {{ outputs.pseudonymize.uri }}"
+                message: "Pseudonymized {{ outputs.pseudonymize.count }} records — result at {{ outputs.pseudonymize.uri }}"
             """
         ),
         @Example(
@@ -169,7 +173,9 @@ import java.util.*;
         (e.g. `user.profile.email`). For CSV files, fields are matched by column header name.
         Any field not listed in `fields` is passed through unchanged.
         A path that does not exist in a record is silently skipped.
-        JSON input must be newline-delimited, one object per line. A line that is not a JSON object fails the task.
+        Kestra task outputs are Ion files, use `ION` (or leave `contentType` unset on a `.ion` file) for them.
+        JSON input must be newline-delimited, one object per line, a pretty-printed file is not supported. A line that is not a JSON object fails the task.
+        Ion content is detected when `JSON` is selected and is then processed as `ION`.
         """
 )
 @SuperBuilder
@@ -178,6 +184,9 @@ import java.util.*;
 @Getter
 @NoArgsConstructor
 public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.PseudonymizeOutput> {
+
+    private static final byte[] ION_BINARY_MARKER = {(byte) 0xE0, 0x01, 0x00, (byte) 0xEA};
+    private static final int ION_SNIFF_LIMIT = 1 << 20;
 
     @Schema(
         title = "Input file URI",
@@ -200,7 +209,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
 
     @Schema(
         title = "Content type",
-        description = "Input (and output) format: `CSV`, `JSON`, or `ION`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`). `JSON` must be one object per line, otherwise the task fails."
+        description = "Input (and output) format: `CSV`, `JSON`, or `ION`. When absent, auto-detected from the file extension (`.csv`, `.json`, or `.ion`). `JSON` must be one object per line, otherwise the task fails. Ion content is detected and processed as `ION` even when `JSON` is resolved."
     )
     @PluginProperty(group = "main")
     private Property<ContentType> contentType;
@@ -226,15 +235,20 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         var inputUri = URI.create(rFrom);
         var resolvedContentType = resolveContentType(runContext, inputUri);
 
-        var ext = switch (resolvedContentType) {
-            case CSV -> ".csv";
-            case ION -> ".ion";
-            case JSON -> ".json";
-        };
-        var tempFile = runContext.workingDir().createTempFile(ext).toFile();
+        File tempFile;
         long count;
 
-        try (var inputStream = runContext.storage().getFile(inputUri)) {
+        try (var inputStream = new BufferedInputStream(runContext.storage().getFile(inputUri))) {
+            if (resolvedContentType == ContentType.JSON && isIon(inputStream)) {
+                runContext.logger().info("Input is Ion, processing it as ION");
+                resolvedContentType = ContentType.ION;
+            }
+            var ext = switch (resolvedContentType) {
+                case CSV -> ".csv";
+                case ION -> ".ion";
+                case JSON -> ".json";
+            };
+            tempFile = runContext.workingDir().createTempFile(ext).toFile();
             count = switch (resolvedContentType) {
                 case CSV -> processCsv(inputStream, tempFile, faker, rFields);
                 case JSON -> processJson(inputStream, tempFile, faker, rFields);
@@ -266,6 +280,55 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         throw new IllegalArgumentException(
             "Cannot auto-detect content type from URI '%s'. Set the 'contentType' property explicitly.".formatted(inputUri)
         );
+    }
+
+    /** Sniffs the head of the stream without consuming it. JSON is tried first because it is a subset of Ion. */
+    private static boolean isIon(BufferedInputStream in) throws IOException {
+        in.mark(ION_SNIFF_LIMIT);
+        try {
+            if (Arrays.equals(in.readNBytes(ION_BINARY_MARKER.length), ION_BINARY_MARKER)) {
+                return true;
+            }
+            in.reset();
+            in.mark(ION_SNIFF_LIMIT);
+
+            var firstLine = readFirstNonBlankLine(in);
+            if (firstLine == null) {
+                return false;
+            }
+            try {
+                JacksonMapper.ofJson().readTree(firstLine);
+                return false;
+            } catch (JsonProcessingException notJson) {
+                try {
+                    JacksonMapper.ofIon().readTree(firstLine);
+                    return true;
+                } catch (JsonProcessingException notIon) {
+                    return false;
+                }
+            }
+        } finally {
+            in.reset();
+        }
+    }
+
+    private static String readFirstNonBlankLine(InputStream in) throws IOException {
+        var line = new ByteArrayOutputStream();
+        int b;
+        int read = 0;
+        while (read++ < ION_SNIFF_LIMIT && (b = in.read()) != -1) {
+            if (b == '\n') {
+                var text = line.toString(StandardCharsets.UTF_8);
+                if (!text.isBlank()) {
+                    return text;
+                }
+                line.reset();
+            } else {
+                line.write(b);
+            }
+        }
+        var text = line.toString(StandardCharsets.UTF_8);
+        return text.isBlank() ? null : text;
     }
 
     private long processCsv(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws IOException {
@@ -331,21 +394,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
                 if (line.isBlank()) {
                     continue;
                 }
-                // Strip Ion type annotations if present (e.g. produced by Generate with store=true)
-                var jsonLine = stripIonAnnotation(line);
-
-                Map<String, Object> record;
-                try {
-                    record = mapper.readValue(jsonLine, mapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
-                } catch (Exception e) {
-                    record = null;
-                }
-                if (record == null) {
-                    // No cause on purpose: Jackson messages quote the offending input, which is PII
-                    throw new IllegalArgumentException(
-                        "Line %d is not a JSON object. JSON input must have one object per line. If the input is an Ion file, set `contentType: ION`.".formatted(lineNumber)
-                    );
-                }
+                var record = parseJsonObject(mapper, line, lineNumber);
 
                 for (var entry : fields.entrySet()) {
                     applyDotPath(record, entry.getKey(), faker, entry.getValue());
@@ -359,13 +408,32 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
         }
     }
 
+    // No cause on purpose: Jackson messages quote the offending input, which is PII
+    private static Map<String, Object> parseJsonObject(ObjectMapper mapper, String line, long lineNumber) {
+        JsonNode node;
+        try {
+            node = mapper.readTree(line);
+        } catch (JsonProcessingException e) {
+            var column = e.getLocation() != null ? e.getLocation().getColumnNr() : -1;
+            throw new IllegalArgumentException(
+                "Line %d is not valid JSON (syntax error at column %d). JSON input must have one object per line, a pretty-printed file is not supported.".formatted(lineNumber, column)
+            );
+        }
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            throw new IllegalArgumentException("Line %d is null, expected a JSON object.".formatted(lineNumber));
+        }
+        if (!node.isObject()) {
+            throw new IllegalArgumentException("Line %d is not a JSON object, found %s.".formatted(lineNumber, node.isArray() ? "an array" : "a scalar value"));
+        }
+        return mapper.convertValue(node, new TypeReference<LinkedHashMap<String, Object>>() {});
+    }
+
     @SuppressWarnings("unchecked")
     private long processIon(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws Exception {
         try (
-            var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
         ) {
-            var flowable = FileSerde.readAll(reader)
+            var flowable = FileSerde.readAll(inputStream)
                 .map(row -> {
                     if (row instanceof Map<?, ?> map) {
                         var record = (Map<String, Object>) map;
@@ -378,22 +446,6 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
             Long count = FileSerde.writeAll(writer, flowable).block();
             return count != null ? count : 0L;
         }
-    }
-
-    /**
-     * Strips a leading Ion type annotation (e.g. {@code 'SomeType'::{...}} → {@code {...}})
-     * so Ion-serialized lines produced by Generate can be parsed as plain JSON.
-     * Search is restricted to the prefix before the first '{' to avoid false-positives
-     * when JSON values contain '::{'.
-     */
-    private static String stripIonAnnotation(String line) {
-        var trimmed = line.trim();
-        var firstBrace = trimmed.indexOf('{');
-        var ionMarker = (firstBrace > 0) ? trimmed.lastIndexOf("::{", firstBrace) : -1;
-        if (ionMarker >= 0) {
-            return trimmed.substring(ionMarker + 2);
-        }
-        return trimmed;
     }
 
     @SuppressWarnings("unchecked")
