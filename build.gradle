@@ -89,7 +89,6 @@ dependencies {
     testImplementation group: "io.kestra", name: "storage-local", version: kestraVersion
 
     // test
-    testImplementation "com.fasterxml.jackson.dataformat:jackson-dataformat-ion"
     testImplementation "org.junit.jupiter:junit-jupiter-engine"
     testImplementation "org.hamcrest:hamcrest"
     testImplementation "org.hamcrest:hamcrest-library"
