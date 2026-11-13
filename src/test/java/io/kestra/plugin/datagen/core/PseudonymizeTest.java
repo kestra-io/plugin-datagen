@@ -5,6 +5,8 @@ import io.kestra.core.models.property.Property;
 import io.kestra.core.runners.RunContextFactory;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.TestFactory;
 
 import io.kestra.core.serializers.FileSerde;
 import reactor.core.publisher.Flux;
@@ -22,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -215,53 +218,53 @@ class PseudonymizeTest {
     }
 
     @Test
-    void shouldNotStripIonAnnotationWhenColonBraceInJsonValue() throws Exception {
-        // A JSON value containing '::{' must not be falsely treated as an Ion annotation prefix
-        var json = "{\"key\":\"foo::{bar}\",\"age\":5}\n";
+    void shouldProcessIonTextAsIonWhenContentTypeIsJson() throws Exception {
+        var ion = "{name:\"Bob\",email:\"b@x.com\",ts:2024-01-01T00:00:00.000Z}\n";
         var runContext = runContextFactory.of();
-        var inputUri = uploadText(runContext, json, ".json");
+        var inputUri = uploadText(runContext, ion, ".ion");
 
         var task = Pseudonymize.builder()
             .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
             .from(Property.ofValue(inputUri.toString()))
             .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
-            .fields(Property.ofValue(Map.of("age", "#{number.numberBetween '1','99'}")))
+            .fields(Property.ofValue(Map.of("email", "#{internet.emailAddress}")))
             .build();
 
         var output = task.run(runContext);
 
         assertThat(output.getCount()).isEqualTo(1L);
-        // The record must have been parsed correctly: key field is untouched
         var result = readOutput(runContext, output.getUri());
-        assertThat(result).contains("\"key\":\"foo::{bar}\"");
+        assertThat(result).contains("Bob").doesNotContain("b@x.com");
     }
 
-    @Test
-    void shouldWriteThroughAndWarnOnUnparsableJsonLine() throws Exception {
-        // A malformed JSON line must be written through un-pseudonymized, and count must still increment
-        var json = "not-valid-json\n{\"name\":\"Bob\"}\n";
-        var runContext = runContextFactory.of();
-        var inputUri = uploadText(runContext, json, ".json");
+    @TestFactory
+    Stream<DynamicTest> shouldFailWithCategorizedMessageWithoutLeakingContent() {
+        var cases = Map.of(
+            "{\"id\":1}\n{\"name\":\"Alice-secret\",}\n", "Line 2 is not valid JSON (syntax error at column",
+            "{\n  \"name\": \"Alice-secret\"\n}\n", "Line 1 is not valid JSON (syntax error at column",
+            "{\"id\":1}\n[\"Alice-secret\"]\n", "Line 2 is not a JSON object, found an array",
+            "{\"id\":1}\n\"Alice-secret\"\n", "Line 2 is not a JSON object, found a scalar value",
+            "{\"id\":1}\nnull\n", "Line 2 is null"
+        );
+        return cases.entrySet().stream().map(c -> DynamicTest.dynamicTest(c.getValue(), () -> {
+            var runContext = runContextFactory.of();
+            var inputUri = uploadText(runContext, c.getKey(), ".json");
 
-        var task = Pseudonymize.builder()
-            .id(UUID.randomUUID().toString())
-            .type(Pseudonymize.class.getName())
-            .from(Property.ofValue(inputUri.toString()))
-            .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
-            .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
-            .build();
+            var task = Pseudonymize.builder()
+                .id(UUID.randomUUID().toString())
+                .type(Pseudonymize.class.getName())
+                .from(Property.ofValue(inputUri.toString()))
+                .contentType(Property.ofValue(Pseudonymize.ContentType.JSON))
+                .fields(Property.ofValue(Map.of("name", "#{name.fullName}")))
+                .build();
 
-        var output = task.run(runContext);
-
-        // Both lines counted (bad line written through, good line pseudonymized)
-        assertThat(output.getCount()).isEqualTo(2L);
-        var result = readOutput(runContext, output.getUri());
-        var lines = result.strip().split("\n");
-        // First line written through verbatim
-        assertThat(lines[0]).isEqualTo("not-valid-json");
-        // Second line pseudonymized (name replaced)
-        assertThat(lines[1]).doesNotContain("\"name\":\"Bob\"");
+            assertThatThrownBy(() -> task.run(runContext))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasNoCause()
+                .hasMessageContaining(c.getValue())
+                .hasMessageNotContaining("Alice-secret");
+        }));
     }
 
     @Test
