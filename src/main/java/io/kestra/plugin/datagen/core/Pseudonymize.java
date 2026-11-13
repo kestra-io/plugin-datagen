@@ -357,10 +357,10 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
     @SuppressWarnings("unchecked")
     private long processIon(InputStream inputStream, File outputFile, Faker faker, Map<String, String> fields) throws Exception {
         try (
-            var reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-            var writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))
+            var input = new BufferedInputStream(inputStream, FileSerde.BUFFER_SIZE);
+            var output = new BufferedOutputStream(new FileOutputStream(outputFile), FileSerde.BUFFER_SIZE)
         ) {
-            var flowable = FileSerde.readAll(reader)
+            var flowable = FileSerde.readAll(input)
                 .map(row -> {
                     if (row instanceof Map<?, ?> map) {
                         var record = (Map<String, Object>) map;
@@ -370,7 +370,7 @@ public class Pseudonymize extends Task implements RunnableTask<Pseudonymize.Pseu
                     }
                     return row;
                 });
-            Long count = FileSerde.writeAll(writer, flowable).block();
+            Long count = FileSerde.writeAll(output, flowable).block();
             return count != null ? count : 0L;
         }
     }

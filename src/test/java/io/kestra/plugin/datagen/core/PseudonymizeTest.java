@@ -9,13 +9,12 @@ import org.junit.jupiter.api.Test;
 import io.kestra.core.serializers.FileSerde;
 import reactor.core.publisher.Flux;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @KestraTest
 class PseudonymizeTest {
@@ -265,7 +265,7 @@ class PseudonymizeTest {
     }
 
     @Test
-    @SuppressWarnings({"unchecked", "deprecation"})
+    @SuppressWarnings("deprecation")
     void shouldPseudonymizeIonFields() throws Exception {
         var runContext = runContextFactory.of();
 
@@ -277,8 +277,39 @@ class PseudonymizeTest {
                 Map.of("name", "Jane Smith", "email", "jane@example.com", "age", 25)
             )).block();
         }
-        var inputUri = runContext.storage().putFile(tempFile);
 
+        assertIonPseudonymized(runContext, runContext.storage().putFile(tempFile));
+    }
+
+    @Test
+    void shouldPseudonymizeBinaryIonFields() throws Exception {
+        assumeTrue(coreWritesBinaryIon(), "FileSerde in this Kestra core version only writes text Ion");
+        var runContext = runContextFactory.of();
+
+        var tempFile = File.createTempFile("pseudonymize-test", ".ion");
+        tempFile.deleteOnExit();
+        try (var out = new FileOutputStream(tempFile)) {
+            FileSerde.writeAll(out, Flux.just(
+                Map.of("name", "John Doe", "email", "john@example.com", "age", 30),
+                Map.of("name", "Jane Smith", "email", "jane@example.com", "age", 25)
+            )).block();
+        }
+
+        assertIonPseudonymized(runContext, runContext.storage().putFile(tempFile));
+    }
+
+    // --- Helpers ---
+
+    private static boolean coreWritesBinaryIon() throws Exception {
+        var out = new ByteArrayOutputStream();
+        FileSerde.writeAll(out, Flux.just(Map.of("a", 1))).block();
+        var bytes = out.toByteArray();
+        return bytes.length >= 4
+            && bytes[0] == (byte) 0xE0 && bytes[1] == 0x01 && bytes[2] == 0x00 && bytes[3] == (byte) 0xEA;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertIonPseudonymized(io.kestra.core.runners.RunContext runContext, URI inputUri) throws Exception {
         var task = Pseudonymize.builder()
             .id(UUID.randomUUID().toString())
             .type(Pseudonymize.class.getName())
@@ -295,24 +326,21 @@ class PseudonymizeTest {
         assertThat(output.getCount()).isEqualTo(2L);
 
         List<Map<String, Object>> results;
-        try (var is = runContext.storage().getFile(output.getUri());
-             var reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            results = FileSerde.<Map<String, Object>>readAll(reader)
+        try (var is = runContext.storage().getFile(output.getUri())) {
+            results = FileSerde.<Map<String, Object>>readAll(is)
                 .map(o -> (Map<String, Object>) o)
                 .collectList()
                 .block();
         }
 
         assertThat(results).hasSize(2);
-        // targeted fields replaced
-        assertThat(results.get(0).get("email")).isNotEqualTo("john@example.com");
+        assertThat(results.getFirst().get("name")).isNotEqualTo("John Doe");
+        assertThat(results.get(1).get("name")).isNotEqualTo("Jane Smith");
+        assertThat(results.getFirst().get("email")).isNotEqualTo("john@example.com");
         assertThat(results.get(1).get("email")).isNotEqualTo("jane@example.com");
-        // untouched field preserved
         assertThat(results.get(0).get("age")).isEqualTo(30);
         assertThat(results.get(1).get("age")).isEqualTo(25);
     }
-
-    // --- Helpers ---
 
     private URI uploadText(io.kestra.core.runners.RunContext runContext, String text, String suffix) throws Exception {
         var tempFile = File.createTempFile("pseudonymize-test", suffix);
